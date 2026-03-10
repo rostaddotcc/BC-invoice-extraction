@@ -1,0 +1,154 @@
+table 50102 "Import Document Header"
+{
+    Caption = 'Import Document Header';
+    DataClassification = CustomerContent;
+
+    fields
+    {
+        field(1; "Entry No."; Integer)
+        {
+            Caption = 'Entry No.';
+            AutoIncrement = true;
+            DataClassification = SystemMetadata;
+        }
+        field(2; "File Name"; Text[250])
+        {
+            Caption = 'File Name';
+            DataClassification = CustomerContent;
+        }
+        field(3; "Import DateTime"; DateTime)
+        {
+            Caption = 'Import DateTime';
+            DataClassification = SystemMetadata;
+        }
+        field(4; "Imported By"; Code[50])
+        {
+            Caption = 'Imported By';
+            DataClassification = SystemMetadata;
+            TableRelation = User."User Name";
+        }
+        field(5; Status; Enum "Import Document Status")
+        {
+            Caption = 'Status';
+            DataClassification = SystemMetadata;
+            InitValue = Pending;
+        }
+        field(6; "Processing Status"; Enum "Import Processing Status")
+        {
+            Caption = 'Processing Status';
+            DataClassification = SystemMetadata;
+            InitValue = Pending;
+        }
+        field(7; "Error Message"; Text[2048])
+        {
+            Caption = 'Error Message';
+            DataClassification = SystemMetadata;
+        }
+        field(8; "Created Invoice No."; Code[20])
+        {
+            Caption = 'Created Invoice No.';
+            DataClassification = SystemMetadata;
+            TableRelation = "Purchase Header"."No." where("Document Type" = const(Invoice));
+        }
+        field(9; "Vendor No."; Code[20])
+        {
+            Caption = 'Vendor No.';
+            DataClassification = CustomerContent;
+            TableRelation = Vendor;
+        }
+        field(10; "Vendor Name"; Text[100])
+        {
+            Caption = 'Vendor Name';
+            DataClassification = CustomerContent;
+        }
+        field(11; "Invoice No."; Code[35])
+        {
+            Caption = 'Invoice No.';
+            DataClassification = CustomerContent;
+        }
+        field(12; "Invoice Date"; Date)
+        {
+            Caption = 'Invoice Date';
+            DataClassification = CustomerContent;
+        }
+        field(13; "Amount Incl. VAT"; Decimal)
+        {
+            Caption = 'Amount Incl. VAT';
+            DataClassification = CustomerContent;
+            AutoFormatType = 1;
+        }
+        field(20; "Media ID"; Media)
+        {
+            Caption = 'Media ID';
+            DataClassification = CustomerContent;
+        }
+    }
+
+    keys
+    {
+        key(PK; "Entry No.")
+        {
+            Clustered = true;
+        }
+        key(StatusKey; Status, "Processing Status", "Import DateTime")
+        {
+        }
+    }
+
+    fieldgroups
+    {
+        fieldgroup(DropDown; "File Name", "Vendor Name", "Invoice No.", Status)
+        {
+        }
+    }
+
+    trigger OnInsert()
+    begin
+        "Import DateTime" := CurrentDateTime();
+        "Imported By" := UserId();
+    end;
+}
+
+enum 50100 "Import Document Status"
+{
+    Extensible = true;
+
+    value(0; Pending)
+    {
+        Caption = 'Pending';
+    }
+    value(1; Ready)
+    {
+        Caption = 'Ready for Review';
+    }
+    value(2; Created)
+    {
+        Caption = 'Invoice Created';
+    }
+    value(3; Discarded)
+    {
+        Caption = 'Discarded';
+    }
+}
+
+enum 50101 "Import Processing Status"
+{
+    Extensible = true;
+
+    value(0; Pending)
+    {
+        Caption = 'Pending';
+    }
+    value(1; Processing)
+    {
+        Caption = 'Processing';
+    }
+    value(2; Completed)
+    {
+        Caption = 'Completed';
+    }
+    value(3; Error)
+    {
+        Caption = 'Error';
+    }
+}

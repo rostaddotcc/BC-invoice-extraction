@@ -1,0 +1,104 @@
+codeunit 50102 "Batch Processing Mgt"
+{
+    Access = Internal;
+
+    var
+        MaxConcurrency: Integer;
+        ConcurrencyErr: Label 'Cannot start processing: maximum concurrency limit reached.';
+
+    procedure StartProcessingWithConcurrency()
+    var
+        ImportDocHeader: Record "Import Document Header";
+        ActiveCount: Integer;
+        SlotsAvailable: Integer;
+        i: Integer;
+    begin
+        MaxConcurrency := 3;
+
+        // Count currently processing documents
+        ImportDocHeader.SetRange("Processing Status", ImportDocHeader."Processing Status"::Processing);
+        ActiveCount := ImportDocHeader.Count();
+
+        if ActiveCount >= MaxConcurrency then
+            exit; // Max concurrency reached
+
+        // Calculate available slots
+        SlotsAvailable := MaxConcurrency - ActiveCount;
+
+        // Find pending documents and start processing
+        ImportDocHeader.SetRange("Processing Status", ImportDocHeader."Processing Status"::Pending);
+        ImportDocHeader.SetRange(Status, ImportDocHeader.Status::Pending);
+
+        for i := 1 to SlotsAvailable do begin
+            if ImportDocHeader.FindFirst() then
+                StartProcessingDocument(ImportDocHeader)
+            else
+                break; // No more pending documents
+        end;
+    end;
+
+    procedure ProcessNextPending()
+    var
+        ImportDocHeader: Record "Import Document Header";
+        ActiveCount: Integer;
+    begin
+        MaxConcurrency := 3;
+
+        // Check concurrency limit
+        ImportDocHeader.SetRange("Processing Status", ImportDocHeader."Processing Status"::Processing);
+        ActiveCount := ImportDocHeader.Count();
+
+        if ActiveCount >= MaxConcurrency then
+            exit;
+
+        // Find and process next pending
+        ImportDocHeader.SetRange("Processing Status", ImportDocHeader."Processing Status"::Pending);
+        ImportDocHeader.SetRange(Status, ImportDocHeader.Status::Pending);
+
+        if ImportDocHeader.FindFirst() then
+            StartProcessingDocument(ImportDocHeader);
+    end;
+
+    local procedure StartProcessingDocument(var ImportDocHeader: Record "Import Document Header")
+    var
+        BatchAPIWorker: Codeunit "Batch API Worker";
+    begin
+        // Update status to processing
+        ImportDocHeader."Processing Status" := ImportDocHeader."Processing Status"::Processing;
+        ImportDocHeader.Modify();
+
+        // Start processing (in real implementation, this could be async)
+        // For now, we process synchronously but with concurrency control
+        Commit(); // Commit status change before processing
+
+        BatchAPIWorker.ProcessDocument(ImportDocHeader."Entry No.");
+    end;
+
+    procedure RetryDocument(EntryNo: Integer)
+    var
+        ImportDocHeader: Record "Import Document Header";
+    begin
+        if ImportDocHeader.Get(EntryNo) then begin
+            ImportDocHeader."Processing Status" := ImportDocHeader."Processing Status"::Pending;
+            ImportDocHeader.Status := ImportDocHeader.Status::Pending;
+            ImportDocHeader."Error Message" := '';
+            ImportDocHeader.Modify();
+
+            // Try to start processing immediately
+            StartProcessingWithConcurrency();
+        end;
+    end;
+
+    procedure GetActiveProcessingCount(): Integer
+    var
+        ImportDocHeader: Record "Import Document Header";
+    begin
+        ImportDocHeader.SetRange("Processing Status", ImportDocHeader."Processing Status"::Processing);
+        exit(ImportDocHeader.Count());
+    end;
+
+    procedure IsConcurrencyAvailable(): Boolean
+    begin
+        exit(GetActiveProcessingCount() < 3);
+    end;
+}
