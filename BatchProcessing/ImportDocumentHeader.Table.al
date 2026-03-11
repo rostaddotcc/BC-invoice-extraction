@@ -71,11 +71,34 @@ table 50102 "Import Document Header"
             Caption = 'Invoice Date';
             DataClassification = CustomerContent;
         }
-        field(13; "Amount Incl. VAT"; Decimal)
+        field(13; "Due Date"; Date)
+        {
+            Caption = 'Due Date';
+            DataClassification = CustomerContent;
+        }
+        field(14; "Amount Incl. VAT"; Decimal)
         {
             Caption = 'Amount Incl. VAT';
             DataClassification = CustomerContent;
             AutoFormatType = 1;
+        }
+        field(15; "Amount Excl. VAT"; Decimal)
+        {
+            Caption = 'Amount Excl. VAT';
+            DataClassification = CustomerContent;
+            AutoFormatType = 1;
+        }
+        field(16; "VAT Amount"; Decimal)
+        {
+            Caption = 'VAT Amount';
+            DataClassification = CustomerContent;
+            AutoFormatType = 1;
+        }
+        field(17; "Currency Code"; Code[10])
+        {
+            Caption = 'Currency Code';
+            DataClassification = CustomerContent;
+            TableRelation = Currency;
         }
         field(20; "Media ID"; Media)
         {

@@ -137,16 +137,12 @@ page 50104 "Batch Upload"
         InStream: InStream;
         FileName: Text;
         FileExtension: Text;
-        Files: List of [Text];
-        FileIndex: Integer;
         UploadCount: Integer;
     begin
-        // Use standard BC file upload for multiple files
-        if not UploadIntoStream('Select Invoice Images', '', 'Image Files (*.jpg;*.jpeg;*.png)|*.jpg;*.jpeg;*.png', FileName, InStream) then
+        // Upload first file
+        if not UploadIntoStream('Select Invoice Image', '', 'Image Files (*.jpg;*.jpeg;*.png)|*.jpg;*.jpeg;*.png', FileName, InStream) then
             exit;
 
-        // For multiple files, we need to handle them one by one
-        // BC's UploadIntoStream doesn't support multi-select, so we use a loop
         repeat
             FileExtension := LowerCase(FileManagement.GetExtension(FileName));
 

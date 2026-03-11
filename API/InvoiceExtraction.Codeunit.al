@@ -253,7 +253,11 @@ codeunit 50101 "Invoice Extraction"
         ImportDocHeader."Vendor Name" := VendorName;
         ImportDocHeader."Invoice No." := InvoiceNo;
         ImportDocHeader."Invoice Date" := InvoiceDate;
+        ImportDocHeader."Due Date" := DueDate;
         ImportDocHeader."Amount Incl. VAT" := AmountInclVAT;
+        ImportDocHeader."Amount Excl. VAT" := AmountExclVAT;
+        ImportDocHeader."VAT Amount" := VATAmount;
+        ImportDocHeader."Currency Code" := CurrencyCode;
         ImportDocHeader.Modify();
 
         // Parse and save lines
@@ -383,6 +387,8 @@ codeunit 50101 "Invoice Extraction"
     local procedure GetJsonDecimalValue(JsonObj: JsonObject; FieldName: Text): Decimal
     var
         JsonToken: JsonToken;
+        ValueText: Text;
+        Result: Decimal;
     begin
         if not JsonObj.Get(FieldName, JsonToken) then
             exit(0);
@@ -390,12 +396,12 @@ codeunit 50101 "Invoice Extraction"
         if JsonToken.AsValue().IsNull() then
             exit(0);
 
-        if JsonToken.AsValue().IsNumber() then
-            exit(JsonToken.AsValue().AsDecimal());
+        // First try to get as number (works when AI returns numeric value)
+        ValueText := JsonToken.AsValue().AsText();
 
-        // Try parsing from string
-        if JsonToken.AsValue().IsText() then
-            exit(0); // Could add parsing logic here
+        // Evaluate handles both numeric strings and actual numbers converted to text
+        if Evaluate(Result, ValueText) then
+            exit(Result);
 
         exit(0);
     end;

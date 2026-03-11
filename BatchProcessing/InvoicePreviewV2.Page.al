@@ -44,39 +44,69 @@ page 50101 "Invoice Preview"
                 {
                     ApplicationArea = All;
                     ToolTip = 'Specifies the invoice date';
+
+                    trigger OnValidate()
+                    begin
+                        Rec.Modify();
+                    end;
                 }
-                field("Due Date"; DueDate)
+                field("Due Date"; Rec."Due Date")
                 {
                     ApplicationArea = All;
                     ToolTip = 'Specifies the due date';
+
+                    trigger OnValidate()
+                    begin
+                        Rec.Modify();
+                    end;
                 }
-                field("Currency Code"; CurrencyCode)
+                field("Currency Code"; Rec."Currency Code")
                 {
                     ApplicationArea = All;
                     ToolTip = 'Specifies the currency code';
+
+                    trigger OnValidate()
+                    begin
+                        Rec.Modify();
+                    end;
                 }
             }
 
             group(Amounts)
             {
                 Caption = 'Amounts';
-                Editable = false;
+                Editable = IsEditable;
 
-                field("Amount Excl. VAT"; AmountExclVAT)
+                field("Amount Excl. VAT"; Rec."Amount Excl. VAT")
                 {
                     ApplicationArea = All;
                     ToolTip = 'Specifies the amount excluding VAT';
+
+                    trigger OnValidate()
+                    begin
+                        Rec.Modify();
+                    end;
                 }
-                field("VAT Amount"; VATAmount)
+                field("VAT Amount"; Rec."VAT Amount")
                 {
                     ApplicationArea = All;
                     ToolTip = 'Specifies the VAT amount';
+
+                    trigger OnValidate()
+                    begin
+                        Rec.Modify();
+                    end;
                 }
                 field("Amount Incl. VAT"; Rec."Amount Incl. VAT")
                 {
                     ApplicationArea = All;
                     ToolTip = 'Specifies the amount including VAT';
                     Style = Strong;
+
+                    trigger OnValidate()
+                    begin
+                        Rec.Modify();
+                    end;
                 }
             }
 
@@ -200,18 +230,18 @@ page 50101 "Invoice Preview"
         ImportDocLine: Record "Import Document Line";
     begin
         // Calculate totals from lines
-        AmountExclVAT := 0;
-        VATAmount := 0;
+        Rec."Amount Excl. VAT" := 0;
+        Rec."VAT Amount" := 0;
 
         ImportDocLine.SetRange("Entry No.", Rec."Entry No.");
         if ImportDocLine.FindSet() then
             repeat
-                AmountExclVAT += ImportDocLine."Line Amount";
+                Rec."Amount Excl. VAT" += ImportDocLine."Line Amount";
             until ImportDocLine.Next() = 0;
 
         // Calculate VAT
-        if Rec."Amount Incl. VAT" > AmountExclVAT then
-            VATAmount := Rec."Amount Incl. VAT" - AmountExclVAT;
+        if Rec."Amount Incl. VAT" > Rec."Amount Excl. VAT" then
+            Rec."VAT Amount" := Rec."Amount Incl. VAT" - Rec."Amount Excl. VAT";
     end;
 
     local procedure UpdateVendorName()
@@ -288,8 +318,4 @@ page 50101 "Invoice Preview"
     var
         IsEditable: Boolean;
         CanCreateInvoice: Boolean;
-        DueDate: Date;
-        CurrencyCode: Code[10];
-        AmountExclVAT: Decimal;
-        VATAmount: Decimal;
 }

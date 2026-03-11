@@ -96,7 +96,7 @@ You can customize the system prompt in the setup page to match your specific inv
 
 1. Navigate to **Purchase Invoices** page
 2. Click **"Batch Import Invoices"** in the ribbon
-3. Select one or more JPG/PNG files (select multiple files in sequence)
+3. Select JPG/PNG files (you will be prompted to upload each file in sequence)
 4. Files are queued and processed automatically (max 3 concurrent)
 5. Click **"View Import Queue"** to see all imported documents
 6. Review status: Pending → Processing → Ready → Created
