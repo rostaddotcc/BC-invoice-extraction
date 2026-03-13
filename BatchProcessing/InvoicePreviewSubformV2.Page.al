@@ -19,6 +19,28 @@ page 50102 "Invoice Preview Subform V2"
                     Editable = false;
                     Width = 6;
                 }
+                field(Type; Rec.Type)
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Specifies the type of the line item (G/L Account, Item, etc.)';
+                    ShowMandatory = true;
+
+                    trigger OnValidate()
+                    begin
+                        Rec.Modify();
+                    end;
+                }
+                field("No."; Rec."No.")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Specifies the number of the G/L Account, Item, etc.';
+                    ShowMandatory = true;
+
+                    trigger OnValidate()
+                    begin
+                        Rec.Modify();
+                    end;
+                }
                 field(Description; Rec.Description)
                 {
                     ApplicationArea = All;

@@ -159,7 +159,7 @@ codeunit 50100 "Qwen VL API"
         ImageObj: JsonObject;
         ImageUrlObj: JsonObject;
     begin
-        SystemPrompt := Setup.GetSystemPrompt();
+        SystemPrompt := Setup.GetSystemPromptWithChartOfAccounts();
 
         // Build message array
         // System message

@@ -43,6 +43,21 @@ table 50103 "Import Document Line"
             Caption = 'VAT %';
             DataClassification = CustomerContent;
         }
+        field(20; "Type"; Enum "Purchase Line Type")
+        {
+            Caption = 'Type';
+            DataClassification = CustomerContent;
+            InitValue = "G/L Account";
+        }
+        field(21; "No."; Code[20])
+        {
+            Caption = 'No.';
+            DataClassification = CustomerContent;
+            TableRelation = IF (Type = CONST("G/L Account")) "G/L Account" WHERE("Account Type" = CONST(Posting), Blocked = CONST(false))
+            ELSE IF (Type = CONST(Item)) Item WHERE(Blocked = CONST(false))
+            ELSE IF (Type = CONST("Fixed Asset")) "Fixed Asset" WHERE(Blocked = CONST(false))
+            ELSE IF (Type = CONST("Charge (Item)")) "Item Charge";
+        }
     }
 
     keys

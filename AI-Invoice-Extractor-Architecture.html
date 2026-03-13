@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Invoice Extractor - System Architecture</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 50px;
+        }
+        
+        header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        header p {
+            font-size: 1.3em;
+            opacity: 0.9;
+        }
+        
+        .flow-diagram {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            margin-bottom: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        .flow-diagram h2 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 1.8em;
+        }
+        
+        .flow-step {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 15px;
+            border-left: 5px solid #667eea;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .flow-step:hover {
+            transform: translateX(10px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+        
+        .step-number {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-right: 20px;
+            flex-shrink: 0;
+        }
+        
+        .step-content h3 {
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .step-content p {
+            color: #666;
+            line-height: 1.5;
+        }
+        
+        .arrow {
+            text-align: center;
+            font-size: 2em;
+            color: #667eea;
+            margin: 10px 0;
+        }
+        
+        .tech-stack {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .tech-card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        
+        .tech-card h3 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .tech-card h3 .icon {
+            font-size: 1.3em;
+        }
+        
+        .tech-list {
+            list-style: none;
+        }
+        
+        .tech-list li {
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .tech-list li:last-child {
+            border-bottom: none;
+        }
+        
+        .tech-name {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .tech-desc {
+            color: #888;
+            font-size: 0.9em;
+        }
+        
+        .data-flow {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        
+        .data-flow h2 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .mermaid {
+            text-align: center;
+        }
+        
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .feature-box {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            text-align: center;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+        
+        .feature-box:hover {
+            transform: translateY(-5px);
+        }
+        
+        .feature-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+        
+        .feature-box h4 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .feature-box p {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .version-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+        
+        footer {
+            text-align: center;
+            color: white;
+            padding: 20px;
+            opacity: 0.8;
+        }
+        
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 2em;
+            }
+            
+            .flow-step {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .step-number {
+                margin-right: 0;
+                margin-bottom: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 AI Invoice Extractor</h1>
+            <p>System Architecture & Technical Overview</p>
+            <span class="version-badge">Version 1.0.0.21</span>
+        </header>
+
+        <div class="flow-diagram">
+            <h2>📋 Workflow</h2>
+            
+            <div class="flow-step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <h3>Batch Upload</h3>
+                    <p>The user uploads invoice images (PNG, JPG) via drag-and-drop. The system creates Import Document records with status "Pending".</p>
+                </div>
+            </div>
+            
+            <div class="arrow">⬇️</div>
+            
+            <div class="flow-step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <h3>AI Processing (Qwen-VL)</h3>
+                    <p>Batch Processing Manager handles up to 3 concurrent calls. Images are converted to Base64 and sent to Qwen-VL API for OCR analysis.</p>
+                </div>
+            </div>
+            
+            <div class="arrow">⬇️</div>
+            
+            <div class="flow-step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <h3>Data Extraction & Vendor Match</h3>
+                    <p>The AI returns JSON with invoice data. The system automatically matches vendor based on name/number and sets default GL account.</p>
+                </div>
+            </div>
+            
+            <div class="arrow">⬇️</div>
+            
+            <div class="flow-step">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                    <h3>Preview & Edit</h3>
+                    <p>The user reviews extracted data in the Invoice Preview page. The original image is displayed in the FactBox. All fields can be edited before creation.</p>
+                </div>
+            </div>
+            
+            <div class="arrow">⬇️</div>
+            
+            <div class="flow-step">
+                <div class="step-number">5</div>
+                <div class="step-content">
+                    <h3>Create Purchase Invoice</h3>
+                    <p>The system creates a standard Purchase Invoice in Business Central with all lines and accounts pre-filled.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="tech-stack">
+            <div class="tech-card">
+                <h3><span class="icon">🏗️</span> Business Central (AL)</h3>
+                <ul class="tech-list">
+                    <li>
+                        <span class="tech-name">Tables</span>
+                        <span class="tech-desc">4 (Setup, Temp Buffer, Import Header/Line)</span>
+                    </li>
+                    <li>
+                        <span class="tech-name">Pages</span>
+                        <span class="tech-desc">6 (Setup, Preview, List, Upload)</span>
+                    </li>
+                    <li>
+                        <span class="tech-name">Codeunits</span>
+                        <span class="tech-desc">4 (API, Extraction, Batch Mgt, Worker)</span>
+                    </li>
+                    <li>
+                        <span class="tech-name">BC Version</span>
+                        <span class="tech-desc">2024 Wave 2 (v27.4+)</span>
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="tech-card">
+                <h3><span class="icon">🧠</span> AI / ML Stack</h3>
+                <ul class="tech-list">
+                    <li>
+                        <span class="tech-name">Qwen-VL</span>
+                        <span class="tech-desc">Alibaba Cloud Vision-Language Model</span>
+                    </li>
+                    <li>
+                        <span class="tech-name">API Endpoint</span>
+                        <span class="tech-desc">dashscope.aliyuncs.com</span>
+                    </li>
+                    <li>
+                        <span class="tech-name">Model</span>
+                        <span class="tech-desc">qwen-vl-max</span>
+                    </li>
+                    <li>
+                        <span class="tech-name">Output</span>
+                        <span class="tech-desc">Strukturerad JSON</span>
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="tech-card">
+                <h3><span class="icon">🔧</span> Integration & Data</h3>
+                <ul class="tech-list">
+                    <li>
+                        <span class="tech-name">HTTP Client</span>
+                        <span class="tech-desc">AL HttpClient för API-anrop</span>
+                    </li>
+                    <li>
+                        <span class="tech-name">Media Management</span>
+                        <span class="tech-desc">BC Media Set för bildlagring</span>
+                    </li>
+                    <li>
+                        <span class="tech-name">JSON Parsing</span>
+                        <span class="tech-desc">AL JsonObject/JsonArray</span>
+                    </li>
+                    <li>
+                        <span class="tech-name">Base64 Encoding</span>
+                        <span class="tech-desc">Bildkonvertering för API</span>
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="tech-card">
+                <h3><span class="icon">⚡</span> Performance & Security</h3>
+                <ul class="tech-list">
+                    <li>
+                        <span class="tech-name">Concurrency</span>
+                        <span class="tech-desc">Max 3 concurrent processes</span>
+                    </li>
+                    <li>
+                        <span class="tech-name">Timeout</span>
+                        <span class="tech-desc">Configurable (default 60s)</span>
+                    </li>
+                    <li>
+                        <span class="tech-name">API Key</span>
+                        <span class="tech-desc">Masked in UI, encrypted storage</span>
+                    </li>
+                    <li>
+                        <span class="tech-name">Queue Management</span>
+                        <span class="tech-desc">Automatic retry on errors</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="data-flow">
+            <h2>🔄 Data Flow Between Components</h2>
+            <div class="mermaid">
+                <pre>
+User Upload → Import Document Header (Pending)
+                    ↓
+Batch Processing Mgt → Queue Management
+                    ↓
+Batch API Worker → Qwen VL API Codeunit
+                    ↓
+HTTP POST (Base64 Image) → Qwen-VL API
+                    ↓
+JSON Response → Invoice Extraction Codeunit
+                    ↓
+Parse & Save → Import Document Header/Line
+                    ↓
+User Preview → Invoice Preview Page
+                    ↓
+Create Invoice → Purchase Header/Line (BC Standard)
+                </pre>
+            </div>
+        </div>
+
+        <div class="features">
+            <div class="feature-box">
+                <div class="feature-icon">📤</div>
+                <h4>Batch Import</h4>
+                <p>Upload multiple invoices at once with drag-and-drop</p>
+            </div>
+            <div class="feature-box">
+                <div class="feature-icon">⚡</div>
+                <h4>Concurrency</h4>
+                <p>Process up to 3 images in parallel for speed</p>
+            </div>
+            <div class="feature-box">
+                <div class="feature-icon">👁️</div>
+                <h4>Preview & Edit</h4>
+                <p>Review and edit data before creation</p>
+            </div>
+            <div class="feature-box">
+                <div class="feature-icon">🔍</div>
+                <h4>Vendor Matching</h4>
+                <p>Automatic vendor matching</p>
+            </div>
+            <div class="feature-box">
+                <div class="feature-icon">⚙️</div>
+                <h4>Configurable</h4>
+                <p>API, model, prompt and GL account can be customized</p>
+            </div>
+            <div class="feature-box">
+                <div class="feature-icon">📊</div>
+                <h4>Status Tracking</h4>
+                <p>Track documents from Pending to Created</p>
+            </div>
+        </div>
+
+        <footer>
+            <p>AI Invoice Extractor for Business Central | Custom Solutions</p>
+        </footer>
+    </div>
+</body>
+</html>

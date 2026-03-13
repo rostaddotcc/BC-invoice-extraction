@@ -196,6 +196,7 @@ codeunit 50101 "Invoice Extraction"
     var
         ImportDocLine: Record "Import Document Line";
         Vendor: Record Vendor;
+        AISetup: Record "AI Extraction Setup";
         JsonToken: JsonToken;
         LinesArr: JsonArray;
         LineObj: JsonObject;
@@ -211,8 +212,13 @@ codeunit 50101 "Invoice Extraction"
         VATAmount: Decimal;
         CurrencyCode: Code[10];
         EntryNo: Integer;
+        DefaultGLAccount: Code[20];
     begin
         EntryNo := ImportDocHeader."Entry No.";
+
+        // Get default G/L account from setup
+        if AISetup.Get() then
+            DefaultGLAccount := AISetup."Default G/L Account";
 
         // Clear existing lines
         ImportDocLine.SetRange("Entry No.", EntryNo);
@@ -274,6 +280,15 @@ codeunit 50101 "Invoice Extraction"
                 ImportDocLine.Quantity := GetJsonDecimalValue(LineObj, 'Quantity');
                 ImportDocLine."Unit Price" := GetJsonDecimalValue(LineObj, 'UnitPrice');
                 ImportDocLine."Line Amount" := GetJsonDecimalValue(LineObj, 'Amount');
+                // Default to G/L Account - user can change in preview if needed
+                ImportDocLine.Type := ImportDocLine.Type::"G/L Account";
+                // Use AI-suggested G/L Account if available, otherwise use default from setup
+                ImportDocLine."No." := GetJsonTextValue(LineObj, 'GLAccountNo', 20);
+
+                // AI-suggested G/L Account is used if available, otherwise fallback to default
+
+                if ImportDocLine."No." = '' then
+                    ImportDocLine."No." := DefaultGLAccount;
 
                 // Calculate missing values
                 if (ImportDocLine."Line Amount" = 0) and (ImportDocLine.Quantity > 0) and (ImportDocLine."Unit Price" > 0) then
@@ -315,8 +330,10 @@ codeunit 50101 "Invoice Extraction"
         PurchHeader."Document Type" := PurchHeader."Document Type"::Invoice;
         PurchHeader.Validate("Buy-from Vendor No.", ImportDocHeader."Vendor No.");
         PurchHeader.Validate("Vendor Invoice No.", ImportDocHeader."Invoice No.");
-        if ImportDocHeader."Invoice Date" <> 0D then
+        if ImportDocHeader."Invoice Date" <> 0D then begin
             PurchHeader.Validate("Document Date", ImportDocHeader."Invoice Date");
+            PurchHeader.Validate("Posting Date", ImportDocHeader."Invoice Date");
+        end;
         if ImportDocHeader."Due Date" <> 0D then
             PurchHeader.Validate("Due Date", ImportDocHeader."Due Date");
         if ImportDocHeader."Payment Terms Code" <> '' then
@@ -335,9 +352,16 @@ codeunit 50101 "Invoice Extraction"
                 PurchLine."Document Type" := PurchHeader."Document Type";
                 PurchLine."Document No." := PurchHeader."No.";
                 PurchLine."Line No." := LineNo;
-                PurchLine.Validate(Type, PurchLine.Type::"G/L Account");
-                if DefaultGLAccount <> '' then
+
+                // Always use Type from import line (defaults to G/L Account)
+                PurchLine.Validate(Type, ImportDocLine.Type);
+
+                // Use No. from import line if specified, otherwise use Default G/L Account
+                if ImportDocLine."No." <> '' then
+                    PurchLine.Validate("No.", ImportDocLine."No.")
+                else if DefaultGLAccount <> '' then
                     PurchLine.Validate("No.", DefaultGLAccount);
+
                 PurchLine.Validate(Description, ImportDocLine.Description);
                 if ImportDocLine.Quantity <> 0 then
                     PurchLine.Validate(Quantity, ImportDocLine.Quantity);

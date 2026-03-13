@@ -35,6 +35,7 @@ Automate the creation of purchase invoices in Business Central by extracting dat
 - Configuration page for API settings
 - System prompt customization
 - Default G/L Account for invoice lines
+- **AI GL Account Suggestion** - AI analyzes chart of accounts and suggests appropriate G/L accounts per line
 
 ### Out of Scope (v1.0)
 
@@ -42,8 +43,9 @@ Automate the creation of purchase invoices in Business Central by extracting dat
 - Automatic vendor matching beyond exact name lookup
 - Multi-language OCR optimization
 - Mobile device camera integration
-- Automatic GL account assignment
 - VAT calculation validation
+
+*Note: Automatic GL account assignment is now IN SCOPE via AI GL Account Suggestion feature*
 
 ## Architecture Decisions
 
@@ -79,6 +81,13 @@ Automate the creation of purchase invoices in Business Central by extracting dat
 | 50102 | Import Document Header | Persistent | One per uploaded image |
 | 50103 | Import Document Line | Persistent | Invoice lines per document |
 
+**AI Extraction Setup Fields:**
+- API Base URL, API Key, Model Name
+- Max Tokens, Temperature, Request Timeout
+- Default G/L Account
+- **Enable AI GL Suggestion** - Activates AI-powered G/L account suggestions
+- **Chart of Accounts Context** - Cached G/L accounts for AI context
+
 ### Pages
 
 | ID | Name | Type | Source Table |
@@ -110,6 +119,41 @@ Automate the creation of purchase invoices in Business Central by extracting dat
 | ID | Name | Permissions |
 |----|------|-------------|
 | 50100 | AI Invoice Extractor | Full access to all objects |
+
+## AI GL Account Suggestion Feature
+
+### Overview
+The AI GL Account Suggestion feature leverages the AI model's understanding of both the invoice content and your chart of accounts to automatically suggest the most appropriate G/L account for each invoice line.
+
+### How It Works
+
+1. **Setup Phase**
+   - User enables "Enable AI GL Suggestion" in AI Extraction Setup
+   - User clicks "Refresh Chart of Accounts" to cache the G/L account list
+   - System stores up to 100 posting accounts in the cache
+
+2. **Processing Phase**
+   - When processing an invoice, the cached chart of accounts is included in the system prompt
+   - AI analyzes each line description against available G/L accounts
+   - AI returns `GLAccountNo` in the JSON response for each line
+
+3. **Fallback Logic**
+   - If AI suggests a valid account → Use AI suggestion
+   - If AI returns empty or invalid → Use Default G/L Account from setup
+   - User can always override in the Preview page
+
+### Technical Implementation
+
+- **Cache Storage:** `Chart of Accounts Context` blob field in AI Extraction Setup
+- **Cache Refresh:** Manual via "Refresh Chart of Accounts" action
+- **Prompt Enhancement:** `GetSystemPromptWithChartOfAccounts()` appends account list to system prompt
+- **JSON Parsing:** `ParseAndSaveToImportDoc` extracts `GLAccountNo` from AI response
+
+### Performance Considerations
+
+- Chart of accounts is cached to avoid database reads on every API call
+- Cache is read from blob storage (fast) rather than G/L Account table
+- Maximum 100 accounts included to manage token usage
 
 ## Workflow
 

@@ -64,6 +64,11 @@ page 50100 "AI Extraction Setup"
                     ApplicationArea = All;
                     ToolTip = 'Default G/L account for invoice lines';
                 }
+                field("Enable AI GL Suggestion"; Rec."Enable AI GL Suggestion")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'When enabled, AI will analyze the chart of accounts and suggest the most appropriate G/L account for each invoice line';
+                }
             }
 
             group(SystemPrompt)
@@ -140,6 +145,22 @@ page 50100 "AI Extraction Setup"
                         SystemPromptText := Rec.GetDefaultSystemPrompt();
                         Rec.SetSystemPrompt(SystemPromptText);
                     end;
+                end;
+            }
+            action(RefreshChartOfAccounts)
+            {
+                ApplicationArea = All;
+                Caption = 'Refresh Chart of Accounts';
+                ToolTip = 'Update the cached chart of accounts for AI GL account suggestions';
+                Image = Refresh;
+                Promoted = true;
+                PromotedCategory = Process;
+                Enabled = Rec."Enable AI GL Suggestion";
+
+                trigger OnAction()
+                begin
+                    Rec.RefreshChartOfAccountsContext();
+                    Message('Chart of accounts refreshed successfully. AI will use the updated account list for suggestions.');
                 end;
             }
         }

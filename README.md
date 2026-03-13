@@ -9,6 +9,7 @@ A Per-Tenant Extension (PTE) for Business Central that uses AI (Qwen-VL) to extr
 - ⚡ **Concurrency Control** - Process up to 3 images at once with automatic queue management
 - 📋 **Import Queue** - View and manage all imported documents with status tracking
 - 👁️ **Preview & Edit** - Review extracted data with original image in FactBox before creating
+- 🧠 **AI GL Account Suggestion** - AI analyzes your chart of accounts and suggests the most appropriate G/L account for each invoice line
 - ⚙️ **Configurable** - Set up your own API endpoint, model, system prompt, and default G/L account
 - 🔒 **Secure** - API keys stored with masked display
 - 📊 **Status Tracking** - Track documents from Pending → Processing → Ready → Created
@@ -62,7 +63,17 @@ After publishing, configure the extension:
 | Temperature | `0.1` | AI creativity (0.0 = strict) |
 | Request Timeout | `60000` | API request timeout in milliseconds |
 | Default G/L Account | `6110` | Default G/L account for invoice lines |
+| Enable AI GL Suggestion | `Yes` | Let AI suggest G/L accounts based on your chart of accounts |
 | System Prompt | *(see below)* | Instructions for data extraction |
+
+### AI GL Account Suggestion
+
+When **Enable AI GL Suggestion** is activated:
+1. Click **Refresh Chart of Accounts** to cache your G/L accounts
+2. The AI will analyze each invoice line description
+3. Based on your chart of accounts, AI suggests the most appropriate G/L account
+4. If AI cannot determine a match, the Default G/L Account is used as fallback
+5. You can always review and edit the suggested accounts in the Preview page
 
 ### Default System Prompt
 
@@ -84,11 +95,14 @@ The extension includes a default system prompt that instructs the AI to return J
       "Description": "Consulting services",
       "Quantity": 10,
       "UnitPrice": 1000.00,
-      "Amount": 10000.00
+      "Amount": 10000.00,
+      "GLAccountNo": "6100"
     }
   ]
 }
 ```
+
+*Note: `GLAccountNo` is automatically suggested by AI when AI GL Suggestion is enabled.*
 
 You can customize the system prompt in the setup page to match your specific invoice formats.
 

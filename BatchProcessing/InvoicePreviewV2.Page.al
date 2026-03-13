@@ -103,6 +103,20 @@ page 50101 "Invoice Preview"
                         Rec.Modify();
                     end;
                 }
+                field("Created Invoice No."; Rec."Created Invoice No.")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Specifies the purchase invoice created from this document';
+                    Editable = false;
+                    Style = Favorable;
+                    DrillDown = true;
+
+                    trigger OnDrillDown()
+                    begin
+                        if Rec."Created Invoice No." <> '' then
+                            OpenPurchaseInvoice(Rec."Created Invoice No.");
+                    end;
+                }
             }
 
             group(Amounts)

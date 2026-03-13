@@ -70,6 +70,19 @@ table 50100 "AI Extraction Setup"
             ToolTip = 'Specifies the default G/L account to use for invoice lines when no specific account can be determined';
             TableRelation = "G/L Account" where("Account Type" = const(Posting), Blocked = const(false));
         }
+        field(10; "Enable AI GL Suggestion"; Boolean)
+        {
+            Caption = 'Enable AI GL Suggestion';
+            DataClassification = CustomerContent;
+            ToolTip = 'When enabled, the AI will analyze the chart of accounts and suggest the most appropriate G/L account for each invoice line based on the description';
+            InitValue = false;
+        }
+        field(11; "Chart of Accounts Context"; Blob)
+        {
+            Caption = 'Chart of Accounts Context';
+            DataClassification = CustomerContent;
+            ToolTip = 'Cached chart of accounts sent to AI for GL account suggestions';
+        }
         // Fields prepared for future PDF conversion support (v2.0)
         field(20; "Enable PDF Conversion"; Boolean)
         {
@@ -156,12 +169,97 @@ table 50100 "AI Extraction Setup"
             '      "Description": "",\n' +
             '      "Quantity": 0,\n' +
             '      "UnitPrice": 0.00,\n' +
-            '      "Amount": 0.00\n' +
+            '      "Amount": 0.00,\n' +
+            '      "GLAccountNo": ""\n' +
             '    }\n' +
             '  ]\n' +
             '}\n' +
             'Use null for values you cannot extract. Use 0 for missing numeric values. Use ISO 8601 date format.'
         );
+    end;
+
+    procedure GetSystemPromptWithChartOfAccounts(): Text
+    var
+        PromptText: Text;
+        ChartOfAccountsContext: Text;
+    begin
+        PromptText := GetSystemPrompt();
+
+        if not "Enable AI GL Suggestion" then
+            exit(PromptText);
+
+        // Read from cache instead of database for better performance
+        ChartOfAccountsContext := GetChartOfAccountsContext();
+
+        if ChartOfAccountsContext = '' then
+            exit(PromptText);
+
+        PromptText += '\n\nADDITIONAL INSTRUCTION FOR G/L ACCOUNT SUGGESTION:\n';
+        PromptText += 'Based on the invoice line descriptions and the following chart of accounts, ';
+        PromptText += 'suggest the most appropriate G/L Account No. for each line in the "GLAccountNo" field.\n\n';
+        PromptText += 'Available G/L Accounts:\n';
+        PromptText += ChartOfAccountsContext;
+        PromptText += '\n\nIf no suitable account can be determined, leave GLAccountNo empty.';
+
+        exit(PromptText);
+    end;
+
+    local procedure BuildChartOfAccountsContext(): Text
+    var
+        GLAccount: Record "G/L Account";
+        Context: Text;
+        LineCount: Integer;
+    begin
+        Context := '';
+        LineCount := 0;
+
+        GLAccount.SetRange("Account Type", GLAccount."Account Type"::Posting);
+        GLAccount.SetRange(Blocked, false);
+
+        if GLAccount.FindSet() then begin
+            repeat
+                if Context <> '' then
+                    Context += '\n';
+                Context += '- ' + GLAccount."No." + ': ' + GLAccount.Name;
+                LineCount += 1;
+
+                // Limit to avoid token overflow
+                if LineCount >= 100 then
+                    break;
+            until GLAccount.Next() = 0;
+        end;
+
+        exit(Context);
+    end;
+
+    procedure GetChartOfAccountsContext(): Text
+    var
+        TypeHelper: Codeunit "Type Helper";
+        InStream: InStream;
+        Context: Text;
+    begin
+        CalcFields("Chart of Accounts Context");
+        if "Chart of Accounts Context".HasValue() then begin
+            "Chart of Accounts Context".CreateInStream(InStream, TextEncoding::UTF8);
+            Context := TypeHelper.ReadAsTextWithSeparator(InStream, TypeHelper.LFSeparator());
+            exit(Context);
+        end;
+        // Fallback: build from database if cache is empty
+        exit(BuildChartOfAccountsContext());
+    end;
+
+    procedure RefreshChartOfAccountsContext()
+    var
+        OutStream: OutStream;
+        Context: Text;
+    begin
+        Context := BuildChartOfAccountsContext();
+        Clear("Chart of Accounts Context");
+        if Context <> '' then begin
+            "Chart of Accounts Context".CreateOutStream(OutStream, TextEncoding::UTF8);
+            OutStream.WriteText(Context);
+        end;
+        Modify();
     end;
 
     procedure GetOrCreateSetup(): Record "AI Extraction Setup"
