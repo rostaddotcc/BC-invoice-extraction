@@ -53,6 +53,11 @@ page 50100 "AI Extraction Setup"
                     ApplicationArea = All;
                     ToolTip = 'Timeout for API requests in milliseconds';
                 }
+                field("Max Concurrency"; Rec."Max Concurrency")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Maximum number of documents processed simultaneously';
+                }
             }
 
             group(Defaults)

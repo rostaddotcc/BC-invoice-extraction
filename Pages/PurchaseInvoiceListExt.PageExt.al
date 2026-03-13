@@ -45,6 +45,7 @@ pageextension 50100 "Purch. Invoice List Ext" extends "Purchase Invoices"
                 var
                     TempBlob: Codeunit "Temp Blob";
                     FileManagement: Codeunit "File Management";
+                    BatchProcessingMgt: Codeunit "Batch Processing Mgt";
                     InStream: InStream;
                     OutStream: OutStream;
                     FileName: Text;
@@ -61,13 +62,13 @@ pageextension 50100 "Purch. Invoice List Ext" extends "Purchase Invoices"
                     // Validate file extension
                     FileExtension := LowerCase(FileManagement.GetExtension(FileName));
 
-                    if not IsValidImageExtension(FileExtension) then begin
+                    if not BatchProcessingMgt.IsValidImageExtension(FileExtension) then begin
                         ShowInvalidFileMessage(FileExtension);
                         exit;
                     end;
 
                     // Determine MIME type
-                    MimeType := GetMimeType(FileExtension);
+                    MimeType := BatchProcessingMgt.GetMimeType(FileExtension);
 
                     // Process the image
                     ProcessInvoiceImage(InStream, FileName, MimeType);
@@ -76,29 +77,12 @@ pageextension 50100 "Purch. Invoice List Ext" extends "Purchase Invoices"
         }
     }
 
-    local procedure IsValidImageExtension(FileExtension: Text): Boolean
-    begin
-        exit(FileExtension in ['jpg', 'jpeg', 'png']);
-    end;
-
     local procedure ShowInvalidFileMessage(FileExtension: Text)
     begin
         if FileExtension = 'pdf' then
             Message('PDF files are not supported in version 1.0. Please convert your PDF to JPG or PNG format before uploading.\n\nTip: You can use "Print to PDF" from your PDF reader and select "Microsoft Print to PDF" with an image printer, or use an online converter.')
         else
             Error('Invalid file format: %1\n\nSupported formats: JPG, JPEG, PNG', FileExtension);
-    end;
-
-    local procedure GetMimeType(FileExtension: Text): Text
-    begin
-        case FileExtension of
-            'jpg', 'jpeg':
-                exit('image/jpeg');
-            'png':
-                exit('image/png');
-            else
-                exit('application/octet-stream');
-        end;
     end;
 
     local procedure ProcessInvoiceImage(InStream: InStream; FileName: Text; MimeType: Text)

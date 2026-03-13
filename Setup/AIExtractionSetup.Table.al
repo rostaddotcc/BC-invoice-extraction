@@ -77,6 +77,15 @@ table 50100 "AI Extraction Setup"
             ToolTip = 'When enabled, the AI will analyze the chart of accounts and suggest the most appropriate G/L account for each invoice line based on the description';
             InitValue = false;
         }
+        field(12; "Max Concurrency"; Integer)
+        {
+            Caption = 'Max Concurrency';
+            DataClassification = CustomerContent;
+            ToolTip = 'Specifies the maximum number of documents that can be processed simultaneously';
+            InitValue = 3;
+            MinValue = 1;
+            MaxValue = 10;
+        }
         field(11; "Chart of Accounts Context"; Blob)
         {
             Caption = 'Chart of Accounts Context';
@@ -270,6 +279,7 @@ table 50100 "AI Extraction Setup"
             "Max Tokens" := 2048;
             Temperature := 0.1;
             "Request Timeout (ms)" := 60000;
+            "Max Concurrency" := 3;
             Insert();
         end;
         exit(Rec);

@@ -137,6 +137,7 @@ page 50104 "Batch Upload"
     var
         TempBlob: Codeunit "Temp Blob";
         FileManagement: Codeunit "File Management";
+        BatchProcessingMgt: Codeunit "Batch Processing Mgt";
         InStream: InStream;
         FileName: Text;
         FileExtension: Text;
@@ -149,7 +150,7 @@ page 50104 "Batch Upload"
         repeat
             FileExtension := LowerCase(FileManagement.GetExtension(FileName));
 
-            if IsValidImageExtension(FileExtension) then begin
+            if BatchProcessingMgt.IsValidImageExtension(FileExtension) then begin
                 if ImportSingleFile(InStream, FileName) then
                     UploadCount += 1;
             end;
@@ -171,12 +172,16 @@ page 50104 "Batch Upload"
     local procedure ImportSingleFile(InStream: InStream; FileName: Text): Boolean
     var
         ImportDocHeader: Record "Import Document Header";
+        FileManagement: Codeunit "File Management";
+        BatchProcessingMgt: Codeunit "Batch Processing Mgt";
         OutStream: OutStream;
         MediaInStream: InStream;
+        FileExtension: Text;
         MimeType: Text;
     begin
         // Determine MIME type
-        MimeType := GetMimeType(FileName);
+        FileExtension := LowerCase(FileManagement.GetExtension(FileName));
+        MimeType := BatchProcessingMgt.GetMimeType(FileExtension);
 
         // Create header record
         ImportDocHeader.Init();
@@ -199,25 +204,6 @@ page 50104 "Batch Upload"
         ImportDocHeader.Modify(true);
 
         exit(true);
-    end;
-
-    local procedure IsValidImageExtension(FileExtension: Text): Boolean
-    begin
-        exit(FileExtension in ['jpg', 'jpeg', 'png']);
-    end;
-
-    local procedure GetMimeType(FileName: Text): Text
-    var
-        FileExtension: Text;
-    begin
-        FileExtension := LowerCase(FileName);
-
-        if FileExtension.EndsWith('.jpg') or FileExtension.EndsWith('.jpeg') then
-            exit('image/jpeg');
-        if FileExtension.EndsWith('.png') then
-            exit('image/png');
-
-        exit('application/octet-stream');
     end;
 
     local procedure StartAutoProcessing()

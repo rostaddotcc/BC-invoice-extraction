@@ -6,6 +6,15 @@ codeunit 50102 "Batch Processing Mgt"
         MaxConcurrency: Integer;
         ConcurrencyErr: Label 'Cannot start processing: maximum concurrency limit reached.';
 
+    local procedure GetMaxConcurrency(): Integer
+    var
+        Setup: Record "AI Extraction Setup";
+    begin
+        if Setup.Get() and (Setup."Max Concurrency" > 0) then
+            exit(Setup."Max Concurrency");
+        exit(3);
+    end;
+
     procedure StartProcessingWithConcurrency()
     var
         ImportDocHeader: Record "Import Document Header";
@@ -13,7 +22,7 @@ codeunit 50102 "Batch Processing Mgt"
         SlotsAvailable: Integer;
         i: Integer;
     begin
-        MaxConcurrency := 3;
+        MaxConcurrency := GetMaxConcurrency();
 
         // Count currently processing documents
         ImportDocHeader.SetRange("Processing Status", ImportDocHeader."Processing Status"::Processing);
@@ -42,7 +51,7 @@ codeunit 50102 "Batch Processing Mgt"
         ImportDocHeader: Record "Import Document Header";
         ActiveCount: Integer;
     begin
-        MaxConcurrency := 3;
+        MaxConcurrency := GetMaxConcurrency();
 
         // Check concurrency limit
         ImportDocHeader.SetRange("Processing Status", ImportDocHeader."Processing Status"::Processing);
@@ -99,6 +108,23 @@ codeunit 50102 "Batch Processing Mgt"
 
     procedure IsConcurrencyAvailable(): Boolean
     begin
-        exit(GetActiveProcessingCount() < 3);
+        exit(GetActiveProcessingCount() < GetMaxConcurrency());
+    end;
+
+    procedure IsValidImageExtension(FileExtension: Text): Boolean
+    begin
+        exit(FileExtension in ['jpg', 'jpeg', 'png']);
+    end;
+
+    procedure GetMimeType(FileExtension: Text): Text
+    begin
+        case FileExtension of
+            'jpg', 'jpeg':
+                exit('image/jpeg');
+            'png':
+                exit('image/png');
+            else
+                exit('application/octet-stream');
+        end;
     end;
 }

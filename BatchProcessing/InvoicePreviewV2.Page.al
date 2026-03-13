@@ -413,8 +413,7 @@ page 50101 "Invoice Preview"
 
         // Check for duplicate vendor invoice no.
         if CheckDuplicateInvoiceNo(Rec."Vendor No.", Rec."Invoice No.") then
-            if not Confirm('An invoice from this vendor with number %1 already exists. Continue anyway?', false, Rec."Invoice No.") then
-                exit(false);
+            Error('An invoice from vendor %1 with number %2 already exists. Change the Invoice No. before creating.', Rec."Vendor No.", Rec."Invoice No.");
 
         exit(true);
     end;

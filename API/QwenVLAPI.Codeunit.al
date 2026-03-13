@@ -98,7 +98,7 @@ codeunit 50100 "Qwen VL API"
         ContentHeaders.Add('Content-Type', 'application/json');
 
         // Configure HTTP client
-        HttpClient.Timeout(10000); // 10 seconds for test
+        HttpClient.Timeout(Setup."Request Timeout (ms)");
 
         // Create request with full URL
         HttpRequest.Method := 'POST';
@@ -239,10 +239,10 @@ codeunit 50100 "Qwen VL API"
     begin
         CleanText := ResponseText;
 
-        // Remove markdown code blocks if present
-        if CleanText.StartsWith('```json') then
-            CleanText := CleanText.Substring(8);
-        if CleanText.StartsWith('```') then
+        // Remove markdown code blocks if present (case-insensitive for ```json/```JSON)
+        if CopyStr(CleanText, 1, 7).ToLower() = '```json' then
+            CleanText := CleanText.Substring(8)
+        else if CleanText.StartsWith('```') then
             CleanText := CleanText.Substring(4);
         if CleanText.EndsWith('```') then
             CleanText := CleanText.Substring(1, StrLen(CleanText) - 3);

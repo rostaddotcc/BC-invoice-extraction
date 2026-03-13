@@ -7,7 +7,6 @@ codeunit 50101 "Invoice Extraction"
         MediaId: Guid;
         var TempBuffer: Record "Temp Invoice Buffer")
     var
-        Vendor: Record Vendor;
         JsonToken: JsonToken;
         LinesArr: JsonArray;
         LineObj: JsonObject;
@@ -39,23 +38,7 @@ codeunit 50101 "Invoice Extraction"
         CurrencyCode := GetJsonTextValue(ExtractedData, 'CurrencyCode', 10);
 
         // Try to find vendor by number or name
-        if VendorNo <> '' then begin
-            if not Vendor.Get(VendorNo) then
-                VendorNo := '';
-        end;
-
-        if (VendorNo = '') and (VendorName <> '') then begin
-            Vendor.SetRange(Name, VendorName);
-            if Vendor.FindFirst() then
-                VendorNo := Vendor."No."
-            else begin
-                // Try partial match
-                Vendor.SetFilter(Name, '@*' + VendorName + '*');
-                if Vendor.FindFirst() then
-                    VendorNo := Vendor."No.";
-            end;
-            Vendor.Reset();
-        end;
+        VendorNo := LookupVendorNo(VendorNo, VendorName);
 
         // Set header values in buffer (Line No. = 0 for header)
         TempBuffer."Line No." := 0;
@@ -86,6 +69,27 @@ codeunit 50101 "Invoice Extraction"
 
         // Re-read header record
         TempBuffer.Get(1, 0);
+    end;
+
+    local procedure LookupVendorNo(VendorNo: Code[20]; VendorName: Text[100]): Code[20]
+    var
+        Vendor: Record Vendor;
+    begin
+        if VendorNo <> '' then
+            if not Vendor.Get(VendorNo) then
+                VendorNo := '';
+
+        if (VendorNo = '') and (VendorName <> '') then begin
+            Vendor.SetRange(Name, VendorName);
+            if Vendor.FindFirst() then
+                exit(Vendor."No.");
+            Vendor.SetFilter(Name, '@*' + VendorName + '*');
+            if Vendor.FindFirst() then
+                exit(Vendor."No.");
+            exit('');
+        end;
+
+        exit(VendorNo);
     end;
 
     local procedure ParseAndInsertLine(
@@ -171,21 +175,8 @@ codeunit 50101 "Invoice Extraction"
 
                 LineNo += 10000;
             until TempLine.Next() = 0;
-        end else begin
-            // Create at least one blank line if no lines extracted
-            PurchLine.Init();
-            PurchLine."Document Type" := PurchHeader."Document Type";
-            PurchLine."Document No." := PurchHeader."No.";
-            PurchLine."Line No." := 10000;
-            PurchLine.Validate(Type, PurchLine.Type::"G/L Account");
-            // Use default G/L account from setup if configured
-            if DefaultGLAccount <> '' then
-                PurchLine.Validate("No.", DefaultGLAccount);
-            PurchLine.Validate(Description, 'Invoice amount - please review and assign account');
-            if TempBuffer."Amount Incl. VAT" <> 0 then
-                PurchLine.Validate("Line Amount", TempBuffer."Amount Incl. VAT");
-            PurchLine.Insert(true);
-        end;
+        end else
+            InsertFallbackPurchLine(PurchHeader, DefaultGLAccount, TempBuffer."Amount Incl. VAT");
 
         exit(PurchHeader."No.");
     end;
@@ -195,7 +186,7 @@ codeunit 50101 "Invoice Extraction"
         var ImportDocHeader: Record "Import Document Header")
     var
         ImportDocLine: Record "Import Document Line";
-        Vendor: Record Vendor;
+        GLAccount: Record "G/L Account";
         AISetup: Record "AI Extraction Setup";
         JsonToken: JsonToken;
         LinesArr: JsonArray;
@@ -236,23 +227,7 @@ codeunit 50101 "Invoice Extraction"
         CurrencyCode := GetJsonTextValue(ExtractedData, 'CurrencyCode', 10);
 
         // Try to find vendor by number or name
-        if VendorNo <> '' then begin
-            if not Vendor.Get(VendorNo) then
-                VendorNo := '';
-        end;
-
-        if (VendorNo = '') and (VendorName <> '') then begin
-            Vendor.SetRange(Name, VendorName);
-            if Vendor.FindFirst() then
-                VendorNo := Vendor."No."
-            else begin
-                // Try partial match
-                Vendor.SetFilter(Name, '@*' + VendorName + '*');
-                if Vendor.FindFirst() then
-                    VendorNo := Vendor."No.";
-            end;
-            Vendor.Reset();
-        end;
+        VendorNo := LookupVendorNo(VendorNo, VendorName);
 
         // Update header with extracted values
         ImportDocHeader."Vendor No." := VendorNo;
@@ -282,10 +257,10 @@ codeunit 50101 "Invoice Extraction"
                 ImportDocLine."Line Amount" := GetJsonDecimalValue(LineObj, 'Amount');
                 // Default to G/L Account - user can change in preview if needed
                 ImportDocLine.Type := ImportDocLine.Type::"G/L Account";
-                // Use AI-suggested G/L Account if available, otherwise use default from setup
+                // Use AI-suggested G/L Account if available and valid, otherwise use default from setup
                 ImportDocLine."No." := GetJsonTextValue(LineObj, 'GLAccountNo', 20);
-
-                // AI-suggested G/L Account is used if available, otherwise fallback to default
+                if (ImportDocLine."No." <> '') and not GLAccount.Get(ImportDocLine."No.") then
+                    ImportDocLine."No." := '';  // Discard invalid account suggested by AI
 
                 if ImportDocLine."No." = '' then
                     ImportDocLine."No." := DefaultGLAccount;
@@ -373,20 +348,8 @@ codeunit 50101 "Invoice Extraction"
 
                 LineNo += 10000;
             until ImportDocLine.Next() = 0;
-        end else begin
-            // Create at least one blank line if no lines extracted
-            PurchLine.Init();
-            PurchLine."Document Type" := PurchHeader."Document Type";
-            PurchLine."Document No." := PurchHeader."No.";
-            PurchLine."Line No." := 10000;
-            PurchLine.Validate(Type, PurchLine.Type::"G/L Account");
-            if DefaultGLAccount <> '' then
-                PurchLine.Validate("No.", DefaultGLAccount);
-            PurchLine.Validate(Description, 'Invoice amount - please review and assign account');
-            if ImportDocHeader."Amount Incl. VAT" <> 0 then
-                PurchLine.Validate("Line Amount", ImportDocHeader."Amount Incl. VAT");
-            PurchLine.Insert(true);
-        end;
+        end else
+            InsertFallbackPurchLine(PurchHeader, DefaultGLAccount, ImportDocHeader."Amount Incl. VAT");
 
         // Attach invoice image to purchase invoice
         AttachInvoiceImageToPurchaseInvoice(ImportDocHeader, PurchHeader."No.");
@@ -397,6 +360,23 @@ codeunit 50101 "Invoice Extraction"
         ImportDocHeader.Modify();
 
         exit(PurchHeader."No.");
+    end;
+
+    local procedure InsertFallbackPurchLine(var PurchHeader: Record "Purchase Header"; DefaultGLAccount: Code[20]; LineAmount: Decimal)
+    var
+        PurchLine: Record "Purchase Line";
+    begin
+        PurchLine.Init();
+        PurchLine."Document Type" := PurchHeader."Document Type";
+        PurchLine."Document No." := PurchHeader."No.";
+        PurchLine."Line No." := 10000;
+        PurchLine.Validate(Type, PurchLine.Type::"G/L Account");
+        if DefaultGLAccount <> '' then
+            PurchLine.Validate("No.", DefaultGLAccount);
+        PurchLine.Validate(Description, 'Invoice amount - please review and assign account');
+        if LineAmount <> 0 then
+            PurchLine.Validate("Line Amount", LineAmount);
+        PurchLine.Insert(true);
     end;
 
     local procedure AttachInvoiceImageToPurchaseInvoice(ImportDocHeader: Record "Import Document Header"; PurchaseInvoiceNo: Code[20])
