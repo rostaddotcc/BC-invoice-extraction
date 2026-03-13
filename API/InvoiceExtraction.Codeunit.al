@@ -388,12 +388,54 @@ codeunit 50101 "Invoice Extraction"
             PurchLine.Insert(true);
         end;
 
+        // Attach invoice image to purchase invoice
+        AttachInvoiceImageToPurchaseInvoice(ImportDocHeader, PurchHeader."No.");
+
         // Update import document as created
         ImportDocHeader.Status := ImportDocHeader.Status::Created;
         ImportDocHeader."Created Invoice No." := PurchHeader."No.";
         ImportDocHeader.Modify();
 
         exit(PurchHeader."No.");
+    end;
+
+    local procedure AttachInvoiceImageToPurchaseInvoice(ImportDocHeader: Record "Import Document Header"; PurchaseInvoiceNo: Code[20])
+    var
+        DocumentAttachment: Record "Document Attachment";
+        InStream: InStream;
+        FileName: Text;
+        FileExtension: Text;
+    begin
+        // Check if we have an image to attach
+        if not ImportDocHeader."Image Blob".HasValue() then
+            exit;
+
+        // Prepare file name
+        FileName := ImportDocHeader."File Name";
+        if FileName = '' then
+            FileName := 'Invoice_' + Format(ImportDocHeader."Entry No.") + '.png';
+
+        // Get file extension
+        FileExtension := LowerCase(FileName);
+        if StrPos(FileExtension, '.') > 0 then
+            FileExtension := CopyStr(FileExtension, StrPos(FileExtension, '.') + 1)
+        else
+            FileExtension := 'png';
+
+        // Create attachment record
+        DocumentAttachment.Init();
+        DocumentAttachment.Validate("Table ID", Database::"Purchase Header");
+        DocumentAttachment.Validate("No.", PurchaseInvoiceNo);
+        DocumentAttachment.Validate("Document Type", DocumentAttachment."Document Type"::Invoice);
+        DocumentAttachment.Validate("File Name", CopyStr(FileName, 1, MaxStrLen(DocumentAttachment."File Name")));
+        DocumentAttachment.Validate("File Extension", CopyStr(FileExtension, 1, MaxStrLen(DocumentAttachment."File Extension")));
+
+        // Copy image data
+        ImportDocHeader.CalcFields("Image Blob");
+        ImportDocHeader."Image Blob".CreateInStream(InStream);
+        DocumentAttachment."Document Reference ID".ImportStream(InStream, FileName);
+
+        DocumentAttachment.Insert(true);
     end;
 
     local procedure GetJsonTextValue(JsonObj: JsonObject; FieldName: Text; MaxLength: Integer): Text

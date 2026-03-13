@@ -172,6 +172,7 @@ page 50104 "Batch Upload"
     var
         ImportDocHeader: Record "Import Document Header";
         OutStream: OutStream;
+        MediaInStream: InStream;
         MimeType: Text;
     begin
         // Determine MIME type
@@ -184,11 +185,18 @@ page 50104 "Batch Upload"
         ImportDocHeader.Status := ImportDocHeader.Status::Pending;
         ImportDocHeader."Processing Status" := ImportDocHeader."Processing Status"::Pending;
 
-        // Save image to blob
+        // Save image to blob first
         ImportDocHeader."Image Blob".CreateOutStream(OutStream);
         CopyStream(OutStream, InStream);
 
+        // Insert record first to get the record created
         ImportDocHeader.Insert(true);
+
+        // Now read from blob and import to Media field
+        ImportDocHeader.CalcFields("Image Blob");
+        ImportDocHeader."Image Blob".CreateInStream(MediaInStream);
+        ImportDocHeader."Invoice Image".ImportStream(MediaInStream, FileName, MimeType);
+        ImportDocHeader.Modify(true);
 
         exit(true);
     end;

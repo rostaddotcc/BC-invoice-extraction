@@ -111,6 +111,11 @@ table 50102 "Import Document Header"
             DataClassification = CustomerContent;
             Subtype = Bitmap;
         }
+        field(25; "Invoice Image"; Media)
+        {
+            Caption = 'Invoice Image';
+            DataClassification = CustomerContent;
+        }
         field(22; "Reference No."; Code[35])
         {
             Caption = 'Reference No.';

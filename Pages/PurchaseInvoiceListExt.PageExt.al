@@ -178,6 +178,10 @@ pageextension 50100 "Purch. Invoice List Ext" extends "Purchase Invoices"
         ImportDocHeader."Processing Status" := ImportDocHeader."Processing Status"::Pending;
         ImportDocHeader."Image Blob".CreateOutStream(OutStream);
         CopyStream(OutStream, InStream);
+
+        // Also save to Media field for display
+        ImportDocHeader."Invoice Image".ImportStream(InStream, FileName, MimeType);
+
         ImportDocHeader.Insert(true);
 
         exit(NewGuid);
