@@ -7,3 +7,6 @@
 
 # License key tools (contains secret salt)
 tools/
+
+# Claude Code
+.claude/
