@@ -4,7 +4,7 @@
 
 **Project Name:** Paper Tide  
 **Type:** Per-Tenant Extension (PTE)  
-**Version:** 1.0.2.0
+**Version:** 1.0.2.1
 **Target Platform:** Microsoft Dynamics 365 Business Central  
 **Minimum Version:** 2024 Release Wave 2 (v27.4)  
 **Runtime Version:** 14.0  
@@ -43,7 +43,6 @@ Automate the creation of purchase invoices in Business Central by extracting dat
 
 ### Out of Scope (v1.0)
 
-- Multi-page PDF support (first page only currently)
 - Multi-language OCR optimization
 - Mobile device camera integration
 - VAT calculation validation
@@ -62,7 +61,7 @@ Automate the creation of purchase invoices in Business Central by extracting dat
 - Business Central AL has no built-in PDF rendering capability
 - PDF files are converted to PNG images at upload time via external Gotenberg service
 - Gotenberg uses Chromium + pdf.js to render PDF pages as high-quality images
-- Only first page is converted (sufficient for most invoices)
+- All pages are rendered and stacked vertically into a single image for AI processing
 
 ### Why Temporary Table for Preview?
 
@@ -400,8 +399,7 @@ If processing fails:
 
 ## Known Limitations
 
-1. **PDF First Page Only** - Multi-page PDFs are converted using only the first page
-2. **No Auto-Post** - Invoices created as open, not posted
+1. **No Auto-Post** - Invoices created as open, not posted
 3. **GL Account Assignment** - Lines use Default G/L Account from setup; user may need to adjust
 4. **Single Currency** - Currency must be specified; no automatic detection
 5. **Manual Upload Only** - No automated import from cloud storage (Azure File Storage planned for v2.0)
@@ -461,7 +459,6 @@ If duplicate found: Error message displayed, creation blocked.
 ### Version 2.0
 
 - **Azure File Storage Import** - Connect to Azure File Storage for automated invoice import
-- **Multi-page PDF support** - Process all pages from multi-page PDFs
 - Confidence scoring per extracted field
 - Highlight low-confidence fields for review
 - Configurable field mapping for non-standard invoices
@@ -496,8 +493,9 @@ If duplicate found: Error message displayed, creation blocked.
 | 1.0.0.15 | 2024-03-12 | Locked preview for created invoices, added View Created Invoice action |
 | 1.0.0.24 | 2026-03-15 | Added PDF support via Gotenberg conversion service |
 | 1.0.2.0 | 2026-03-15 | PaperTide branding, Auto Coding feature, GL Suggestion Confidence, Configurable Concurrency |
+| 1.0.2.1 | 2026-03-15 | Multi-page PDF support: all pages rendered for AI extraction |
 
 ---
 
-**Document Version:** 1.3
+**Document Version:** 1.4
 **Last Updated:** 2026-03-15

@@ -5,7 +5,7 @@ A Per-Tenant Extension (PTE) for Business Central that uses AI vision models to 
 ## Features
 
 - **AI-Powered OCR** - Extract invoice data using any OpenAI-compatible vision model
-- **PDF Support** - Upload PDF invoices with automatic conversion to images via Gotenberg
+- **Full PDF Support** - Upload multi-page PDF invoices with automatic conversion to images via Gotenberg (all pages rendered)
 - **Multi-Page PDF Attachment** - Original PDF (all pages) attached to created Purchase Invoice
 - **Batch Import** - Upload and process multiple invoice images/PDFs simultaneously
 - **Concurrency Control** - Process up to 3 images at once with automatic queue management
@@ -219,7 +219,7 @@ When the AI extracts vendor information, matching follows this priority:
 |--------|--------|-------|
 | JPG/JPEG | Supported | Direct upload |
 | PNG | Supported | Direct upload |
-| PDF | Supported | Requires Gotenberg service for conversion |
+| PDF | Supported | All pages rendered; requires Gotenberg service |
 
 ## Architecture
 
@@ -348,6 +348,9 @@ Pending -> Processing -> Ready -> Created
 
 ## Changelog
 
+### v1.0.2.1 (2026-03-15)
+- **Multi-Page PDF Support** - All pages from multi-page PDFs are now rendered and sent to the AI, not just the first page. Pages are stacked vertically into a single image for complete document analysis.
+
 ### v1.0.2.0 (2026-03-15)
 - **PaperTide Branding** - Full rebrand of all AL objects with PaperTide prefix for consistent naming
 - **Auto Coding (Separate AI Model)** - New feature: dedicated text AI model for GL account classification, separate from vision model. Configurable connection, model, and system prompt. Includes vendor posting history context for better predictions.
@@ -404,7 +407,7 @@ For issues or questions, contact your Business Central partner or development te
 
 ---
 
-**Version:** 1.0.2.0
+**Version:** 1.0.2.1
 **Compatible with:** Business Central 27.4+
 **Runtime:** 14.0+
 **Last Updated:** 2026-03-15

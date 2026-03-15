@@ -142,9 +142,10 @@ codeunit 50104 "PaperTide PDF Converter"
     local procedure WriteHtmlTemplate(var OutStream: OutStream; PdfBase64: Text)
     begin
         // Write HTML in parts to avoid concatenating with the large base64 string
+        // Renders ALL pages stacked vertically so the AI sees the full document
         OutStream.WriteText('<!DOCTYPE html><html><head>');
-        OutStream.WriteText('<style>*{margin:0;padding:0;}body{background:white;}</style>');
-        OutStream.WriteText('</head><body><canvas id="c"></canvas>');
+        OutStream.WriteText('<style>*{margin:0;padding:0;}body{background:white;}canvas{display:block;}</style>');
+        OutStream.WriteText('</head><body><div id="container"></div>');
         OutStream.WriteText('<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>');
         OutStream.WriteText('<script>');
         OutStream.WriteText('var pdfData=atob(''');
@@ -155,13 +156,17 @@ codeunit 50104 "PaperTide PDF Converter"
         OutStream.WriteText('pdfjsLib.GlobalWorkerOptions.workerSrc=');
         OutStream.WriteText('"https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";');
         OutStream.WriteText('pdfjsLib.getDocument({data:u}).promise.then(function(pdf){');
-        OutStream.WriteText('pdf.getPage(1).then(function(page){');
-        OutStream.WriteText('var s=3;var vp=page.getViewport({scale:s});');
-        OutStream.WriteText('var c=document.getElementById("c");');
-        OutStream.WriteText('c.width=vp.width;c.height=vp.height;');
-        OutStream.WriteText('page.render({canvasContext:c.getContext("2d"),viewport:vp}).promise.then(function(){');
-        OutStream.WriteText('window.pdfRendered=true;');
-        OutStream.WriteText('});});});');
+        OutStream.WriteText('var n=pdf.numPages,ctr=document.getElementById("container"),done=0;');
+        OutStream.WriteText('var cvs=[];for(var i=0;i<n;i++){var c=document.createElement("canvas");ctr.appendChild(c);cvs.push(c);}');
+        OutStream.WriteText('for(var p=1;p<=n;p++){(function(pn,cv){');
+        OutStream.WriteText('pdf.getPage(pn).then(function(page){');
+        OutStream.WriteText('var s=3,vp=page.getViewport({scale:s});');
+        OutStream.WriteText('cv.width=vp.width;cv.height=vp.height;');
+        OutStream.WriteText('page.render({canvasContext:cv.getContext("2d"),viewport:vp}).promise.then(function(){');
+        OutStream.WriteText('done++;if(done===n)window.pdfRendered=true;');
+        OutStream.WriteText('});});');
+        OutStream.WriteText('})(p,cvs[p-1]);}');
+        OutStream.WriteText('});');
         OutStream.WriteText('</script></body></html>');
     end;
 }

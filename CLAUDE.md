@@ -146,7 +146,7 @@ The AI extracts and returns:
 
 ### Upload Flow
 ```
-Upload PDF → Buffer original in TempBlob → Convert page 1 to PNG via Gotenberg → Store PNG as Image Blob + Original PDF as "Original PDF Blob"
+Upload PDF → Buffer original in TempBlob → Convert all pages to single PNG via Gotenberg → Store PNG as Image Blob + Original PDF as "Original PDF Blob"
 ```
 
 ### Attachment
@@ -156,7 +156,7 @@ When creating Purchase Invoice, the original PDF (all pages) is attached as Docu
 - **Endpoint:** `{PDF Converter Endpoint}/forms/chromium/screenshot/html`
 - **Method:** POST multipart/form-data
 - **Parts:** `files` (HTML with inline base64 PDF + pdf.js renderer), `format` (png), `waitForExpression` (window.pdfRendered===true)
-- **Returns:** PNG image of first page at 3x scale
+- **Returns:** PNG image of all pages stacked vertically at 3x scale
 
 ### Configuration
 - `Enable PDF Conversion`: Boolean toggle
