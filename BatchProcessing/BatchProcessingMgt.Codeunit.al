@@ -116,6 +116,26 @@ codeunit 50102 "Batch Processing Mgt"
         exit(FileExtension in ['jpg', 'jpeg', 'png']);
     end;
 
+    procedure IsValidUploadExtension(FileExtension: Text): Boolean
+    var
+        Setup: Record "AI Extraction Setup";
+    begin
+        if IsValidImageExtension(FileExtension) then
+            exit(true);
+
+        if FileExtension = 'pdf' then begin
+            Setup.GetOrCreateSetup();
+            exit(Setup."Enable PDF Conversion");
+        end;
+
+        exit(false);
+    end;
+
+    procedure IsPdfFile(FileExtension: Text): Boolean
+    begin
+        exit(FileExtension = 'pdf');
+    end;
+
     procedure GetMimeType(FileExtension: Text): Text
     begin
         case FileExtension of
@@ -123,6 +143,8 @@ codeunit 50102 "Batch Processing Mgt"
                 exit('image/jpeg');
             'png':
                 exit('image/png');
+            'pdf':
+                exit('application/pdf');
             else
                 exit('application/octet-stream');
         end;

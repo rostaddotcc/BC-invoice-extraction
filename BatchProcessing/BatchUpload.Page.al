@@ -14,7 +14,7 @@ page 50104 "Batch Upload"
             group(Instructions)
             {
                 Caption = 'Instructions';
-                InstructionalText = 'Upload one or more invoice images (JPG, JPEG, PNG). The AI will extract data from each image. You can review and edit each invoice before creating it.';
+                InstructionalText = 'Upload one or more invoice images (JPG, JPEG, PNG) or PDF files. The AI will extract data from each document. You can review and edit each invoice before creating it.';
             }
 
             group(QueueStatus)
@@ -144,13 +144,13 @@ page 50104 "Batch Upload"
         UploadCount: Integer;
     begin
         // Upload first file
-        if not UploadIntoStream('Select Invoice Image', '', 'Image Files (*.jpg;*.jpeg;*.png)|*.jpg;*.jpeg;*.png', FileName, InStream) then
+        if not UploadIntoStream('Select Invoice File', '', 'Supported Files (*.jpg;*.jpeg;*.png;*.pdf)|*.jpg;*.jpeg;*.png;*.pdf|Image Files (*.jpg;*.jpeg;*.png)|*.jpg;*.jpeg;*.png|PDF Files (*.pdf)|*.pdf', FileName, InStream) then
             exit;
 
         repeat
             FileExtension := LowerCase(FileManagement.GetExtension(FileName));
 
-            if BatchProcessingMgt.IsValidImageExtension(FileExtension) then begin
+            if BatchProcessingMgt.IsValidUploadExtension(FileExtension) then begin
                 if ImportSingleFile(InStream, FileName) then
                     UploadCount += 1;
             end;
@@ -174,14 +174,25 @@ page 50104 "Batch Upload"
         ImportDocHeader: Record "Import Document Header";
         FileManagement: Codeunit "File Management";
         BatchProcessingMgt: Codeunit "Batch Processing Mgt";
+        PDFConverter: Codeunit "PDF Converter";
+        ImageTempBlob: Codeunit "Temp Blob";
         OutStream: OutStream;
         MediaInStream: InStream;
+        ImageInStream: InStream;
         FileExtension: Text;
         MimeType: Text;
+        IsPdf: Boolean;
     begin
-        // Determine MIME type
         FileExtension := LowerCase(FileManagement.GetExtension(FileName));
-        MimeType := BatchProcessingMgt.GetMimeType(FileExtension);
+        IsPdf := BatchProcessingMgt.IsPdfFile(FileExtension);
+
+        // Convert PDF to image if needed
+        if IsPdf then begin
+            if not PDFConverter.TryConvertPdfToImage(InStream, ImageTempBlob) then
+                Error(GetLastErrorText());
+            MimeType := 'image/png';
+        end else
+            MimeType := BatchProcessingMgt.GetMimeType(FileExtension);
 
         // Create header record
         ImportDocHeader.Init();
@@ -190,14 +201,17 @@ page 50104 "Batch Upload"
         ImportDocHeader.Status := ImportDocHeader.Status::Pending;
         ImportDocHeader."Processing Status" := ImportDocHeader."Processing Status"::Pending;
 
-        // Save image to blob first
+        // Save image to blob
         ImportDocHeader."Image Blob".CreateOutStream(OutStream);
-        CopyStream(OutStream, InStream);
+        if IsPdf then begin
+            ImageTempBlob.CreateInStream(ImageInStream);
+            CopyStream(OutStream, ImageInStream);
+        end else
+            CopyStream(OutStream, InStream);
 
-        // Insert record first to get the record created
         ImportDocHeader.Insert(true);
 
-        // Now read from blob and import to Media field
+        // Import to Media field for preview
         ImportDocHeader.CalcFields("Image Blob");
         ImportDocHeader."Image Blob".CreateInStream(MediaInStream);
         ImportDocHeader."Invoice Image".ImportStream(MediaInStream, FileName, MimeType);

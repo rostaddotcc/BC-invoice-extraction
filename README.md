@@ -1,11 +1,12 @@
 # AI Invoice Extractor for Business Central
 
-A Per-Tenant Extension (PTE) for Business Central that uses AI (Qwen-VL) to extract invoice data from images, with a preview and approval workflow.
+A Per-Tenant Extension (PTE) for Business Central that uses AI (Qwen-VL) to extract invoice data from images and PDF files, with a preview and approval workflow.
 
 ## Features
 
 - 🤖 **AI-Powered OCR** - Extract invoice data using Qwen-VL vision model
-- 📦 **Batch Import** - Upload and process multiple invoice images simultaneously
+- 📄 **PDF Support** - Upload PDF invoices with automatic conversion to images via Gotenberg
+- 📦 **Batch Import** - Upload and process multiple invoice images/PDFs simultaneously
 - ⚡ **Concurrency Control** - Process up to 3 images at once with automatic queue management
 - 📋 **Import Queue** - View and manage all imported documents with status tracking
 - 👁️ **Preview & Edit** - Review extracted data with original image in FactBox before creating
@@ -20,6 +21,7 @@ A Per-Tenant Extension (PTE) for Business Central that uses AI (Qwen-VL) to extr
 
 - Business Central 2024 Wave 2 (v27.4) or later
 - Qwen-VL API access (Alibaba Cloud DashScope or compatible)
+- Gotenberg service (for PDF support, optional)
 - AL Language extension for VS Code
 
 ## Installation
@@ -64,6 +66,8 @@ After publishing, configure the extension:
 | Request Timeout | `60000` | API request timeout in milliseconds |
 | Default G/L Account | `6110` | Default G/L account for invoice lines |
 | Enable AI GL Suggestion | `Yes` | Let AI suggest G/L accounts based on your chart of accounts |
+| Enable PDF Conversion | `Yes` | Allow PDF uploads with automatic image conversion |
+| PDF Converter Endpoint | `https://pdf.example.com` | Gotenberg service URL |
 | System Prompt | *(see below)* | Instructions for data extraction |
 
 ### AI GL Account Suggestion
@@ -119,7 +123,7 @@ Upload → Process (AI) → Review → Create Invoice
 1. Navigate to **Purchase Invoices** page
 2. Click **"Batch Upload Invoices"** in the ribbon
 3. Click **"Select Files"** button
-4. Select one or more JPG/PNG files (you can upload multiple files in sequence)
+4. Select one or more JPG/PNG/PDF files (you can upload multiple files in sequence)
 5. Files are automatically queued and processed (max 3 concurrent)
 6. The **Processing Queue** shows counts: Pending, Processing, Ready for Review, Errors, Created
 
@@ -167,18 +171,18 @@ Upload → Process (AI) → Review → Create Invoice
 
 | Format | Status | Notes |
 |--------|--------|-------|
-| JPG/JPEG | ✅ Supported | Recommended |
-| PNG | ✅ Supported | Recommended |
-| PDF | ❌ Not supported (v1.0) | Convert to image first |
+| JPG/JPEG | ✅ Supported | Direct upload |
+| PNG | ✅ Supported | Direct upload |
+| PDF | ✅ Supported | Requires Gotenberg service for conversion |
 
 ## Architecture
 
 ### Batch Import Flow
 
 ```
-User selects multiple images
+User selects multiple images/PDFs
         ↓
-[Batch Upload Page] → Queue files
+[Batch Upload Page] → Queue files (PDF → Gotenberg → PNG)
         ↓
 [Batch Processing Mgt] → Concurrency control (max 3)
         ↓
@@ -234,6 +238,7 @@ Pending → Processing → Ready → Created
 | AI Extraction Setup | Table | Configuration storage (singleton) |
 | Temp Invoice Buffer | Table | Temporary data for preview |
 | Qwen VL API | Codeunit | HTTP client for AI service |
+| PDF Converter | Codeunit | PDF-to-image conversion via Gotenberg |
 | Invoice Extraction | Codeunit | Parser and invoice creator |
 | Invoice Preview | Page | Review interface with image FactBox |
 
@@ -282,11 +287,10 @@ Pending → Processing → Ready → Created
 
 ### Version 2.0
 - [ ] **Azure File Storage Import** - Connect to Azure File Storage for automated invoice import
-- [ ] **PDF Support** - Convert PDF to base64 and send directly to Qwen-VL for processing
+- [ ] Multi-page PDF support (currently first page only)
 - [ ] Confidence scores per extracted field
 - [ ] Highlight low-confidence fields for review
 - [ ] Configurable field mapping for non-standard invoices
-- [ ] Multi-page invoice support
 - [ ] Email integration (monitor inbox for invoice attachments)
 
 ### Version 3.0
@@ -306,7 +310,7 @@ For issues or questions, contact your Business Central partner or development te
 
 ---
 
-**Version:** 1.0.0.15  
-**Compatible with:** Business Central 27.4+  
-**Runtime:** 14.0+  
-**Last Updated:** 2024-03-12
+**Version:** 1.0.0.24
+**Compatible with:** Business Central 27.4+
+**Runtime:** 14.0+
+**Last Updated:** 2026-03-15

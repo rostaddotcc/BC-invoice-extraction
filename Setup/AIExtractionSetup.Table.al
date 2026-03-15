@@ -92,29 +92,24 @@ table 50100 "AI Extraction Setup"
             DataClassification = CustomerContent;
             ToolTip = 'Cached chart of accounts sent to AI for GL account suggestions';
         }
-        // Fields prepared for future PDF conversion support (v2.0)
         field(20; "Enable PDF Conversion"; Boolean)
         {
             Caption = 'Enable PDF Conversion';
             DataClassification = CustomerContent;
-            ToolTip = 'Enable external PDF to image conversion service (reserved for future use)';
+            ToolTip = 'When enabled, PDF files can be uploaded and are automatically converted to images via Gotenberg before AI extraction';
         }
         field(21; "PDF Converter Endpoint"; Text[250])
         {
             Caption = 'PDF Converter Endpoint';
             DataClassification = CustomerContent;
-            ToolTip = 'Endpoint for PDF conversion service (reserved for future use)';
-            ObsoleteState = Pending;
-            ObsoleteReason = 'Reserved for future PDF conversion support';
+            ToolTip = 'Base URL for the Gotenberg PDF conversion service (e.g., https://pdf.example.com)';
         }
         field(22; "PDF Converter API Key"; Text[250])
         {
             Caption = 'PDF Converter API Key';
             DataClassification = CustomerContent;
-            ToolTip = 'API key for PDF conversion service (reserved for future use)';
+            ToolTip = 'Optional API key if the PDF conversion service requires authentication';
             ExtendedDatatype = Masked;
-            ObsoleteState = Pending;
-            ObsoleteReason = 'Reserved for future PDF conversion support';
         }
     }
 

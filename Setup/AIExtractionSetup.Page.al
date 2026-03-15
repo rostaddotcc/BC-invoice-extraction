@@ -96,16 +96,20 @@ page 50100 "AI Extraction Setup"
                 }
             }
 
-            group(FutureFeatures)
+            group(PDFConversion)
             {
-                Caption = 'Future Features (Reserved)';
-                Visible = false; // Hidden until PDF conversion is implemented
+                Caption = 'PDF Conversion';
 
                 field("Enable PDF Conversion"; Rec."Enable PDF Conversion")
                 {
                     ApplicationArea = All;
-                    ToolTip = 'Enable PDF conversion (reserved for v2.0)';
-                    Enabled = false;
+                    ToolTip = 'When enabled, PDF files can be uploaded and are automatically converted to images via Gotenberg before AI extraction';
+                }
+                field("PDF Converter Endpoint"; Rec."PDF Converter Endpoint")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Base URL for the Gotenberg PDF conversion service (e.g., https://pdf.example.com)';
+                    Enabled = Rec."Enable PDF Conversion";
                 }
             }
         }
@@ -150,6 +154,26 @@ page 50100 "AI Extraction Setup"
                         SystemPromptText := Rec.GetDefaultSystemPrompt();
                         Rec.SetSystemPrompt(SystemPromptText);
                     end;
+                end;
+            }
+            action(TestPDFConversion)
+            {
+                ApplicationArea = All;
+                Caption = 'Test PDF Conversion';
+                ToolTip = 'Test the connection to the Gotenberg PDF conversion service';
+                Image = TestFile;
+                Promoted = true;
+                PromotedCategory = Process;
+                Enabled = Rec."Enable PDF Conversion";
+
+                trigger OnAction()
+                var
+                    PDFConverter: Codeunit "PDF Converter";
+                begin
+                    if PDFConverter.TestConnection() then
+                        Message('PDF conversion service is reachable and healthy.')
+                    else
+                        Message('PDF conversion service is not reachable. Please check the endpoint URL.');
                 end;
             }
             action(RefreshChartOfAccounts)

@@ -39,7 +39,7 @@ Automate the creation of purchase invoices in Business Central by extracting dat
 
 ### Out of Scope (v1.0)
 
-- PDF file support (planned for v2.0)
+- Multi-page PDF support (first page only currently)
 - Automatic vendor matching beyond exact name lookup
 - Multi-language OCR optimization
 - Mobile device camera integration
@@ -56,12 +56,12 @@ Automate the creation of purchase invoices in Business Central by extracting dat
 - JSON-structured output support
 - Good performance on invoice documents
 
-### Why Not PDF Support in v1.0?
+### PDF Conversion via Gotenberg
 
 - Business Central AL has no built-in PDF rendering capability
-- External PDF conversion requires additional service (Azure Function, etc.)
-- Users can convert PDF to image using standard tools
-- Reserved for v2.0 when additional infrastructure is available
+- PDF files are converted to PNG images at upload time via external Gotenberg service
+- Gotenberg uses Chromium + pdf.js to render PDF pages as high-quality images
+- Only first page is converted (sufficient for most invoices)
 
 ### Why Temporary Table for Preview?
 
@@ -87,6 +87,8 @@ Automate the creation of purchase invoices in Business Central by extracting dat
 - Default G/L Account
 - **Enable AI GL Suggestion** - Activates AI-powered G/L account suggestions
 - **Chart of Accounts Context** - Cached G/L accounts for AI context
+- **Enable PDF Conversion** - Activates PDF upload with automatic image conversion
+- **PDF Converter Endpoint** - Gotenberg service URL
 
 ### Pages
 
@@ -107,6 +109,7 @@ Automate the creation of purchase invoices in Business Central by extracting dat
 | 50101 | Invoice Extraction | Internal | JSON parsing and invoice creation |
 | 50102 | Batch Processing Mgt | Internal | Queue management and concurrency control |
 | 50103 | Batch API Worker | Internal | Individual document processing |
+| 50104 | PDF Converter | Internal | PDF-to-image conversion via Gotenberg |
 
 ### Page Extensions
 
@@ -164,10 +167,11 @@ User clicks "Batch Upload Invoices" action
     ↓
 "Select Files" button opens file dialog
     ↓
-User selects one or more images (JPG/JPEG/PNG)
+User selects one or more files (JPG/JPEG/PNG/PDF)
     ↓
 For each file:
     - Validate file extension
+    - If PDF: convert to PNG via Gotenberg
     - Save image to Image Blob field
     - Create Import Document Header record
     - Set status to "Pending"
@@ -247,7 +251,7 @@ If processing fails:
 ┌─────────────────────────────────────────────────────────────────┐
 │                      FILE HANDLING                               │
 │  - File upload dialog (UploadIntoStream)                         │
-│  - Extension validation (JPG, JPEG, PNG)                         │
+│  - Extension validation (JPG, JPEG, PNG, PDF)                    │
 │  - MIME type detection                                           │
 │  - Save to Image Blob field                                      │
 └─────────────────────────────┬───────────────────────────────────┘
@@ -328,7 +332,7 @@ If processing fails:
 |--------|---------------|
 | API Key Storage | SecretText data type (encrypted at rest) |
 | HTTP Security | HTTPS only (enforced by URL validation) |
-| File Upload | Whitelist validation (JPG/JPEG/PNG only) |
+| File Upload | Whitelist validation (JPG/JPEG/PNG/PDF) |
 | Data Classification | CustomerContent for all setup data |
 | Permissions | Dedicated permission set |
 
@@ -381,7 +385,7 @@ If processing fails:
 
 ## Known Limitations
 
-1. **No PDF Support** - Users must convert PDFs to images externally (planned for v2.0 with direct PDF-to-base64 conversion)
+1. **PDF First Page Only** - Multi-page PDFs are converted using only the first page
 2. **No Auto-Post** - Invoices created as open, not posted
 3. **GL Account Assignment** - Lines use Default G/L Account from setup; user may need to adjust
 4. **Single Currency** - Currency must be specified; no automatic detection
@@ -439,11 +443,10 @@ If duplicate found: Error message displayed, creation blocked.
 ### Version 2.0
 
 - **Azure File Storage Import** - Connect to Azure File Storage for automated invoice import
-- **PDF Support** - Convert PDF to base64 and send directly to Qwen-VL for processing (no external conversion service needed)
+- **Multi-page PDF support** - Process all pages from multi-page PDFs
 - Confidence scoring per extracted field
 - Highlight low-confidence fields for review
 - Configurable field mapping for non-standard invoices
-- Multi-page invoice support
 - Email integration (monitor inbox for invoice attachments)
 
 ### Version 3.0
@@ -473,8 +476,9 @@ If duplicate found: Error message displayed, creation blocked.
 | 1.0.0.13 | 2024-03-12 | Fixed Base64 conversion, added better error messages |
 | 1.0.0.14 | 2024-03-12 | Added "Created Invoices" counter, removed Upload Images section |
 | 1.0.0.15 | 2024-03-12 | Locked preview for created invoices, added View Created Invoice action |
+| 1.0.0.24 | 2026-03-15 | Added PDF support via Gotenberg conversion service |
 
 ---
 
-**Document Version:** 1.1  
-**Last Updated:** 2024-03-12
+**Document Version:** 1.2
+**Last Updated:** 2026-03-15
