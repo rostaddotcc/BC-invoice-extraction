@@ -39,8 +39,13 @@ codeunit 50103 "PaperTide Batch API Worker"
 
         // Run GL account prediction as a separate step
         if AISetup.Get() and AISetup."Enable Auto Coding" then
-            if not GLAccountPredictor.TryPredictGLAccounts(ImportDocHeader."Entry No.") then
-                ;  // Silent fallback — lines keep default GL accounts
+            if not GLAccountPredictor.TryPredictGLAccounts(ImportDocHeader."Entry No.") then begin
+                ImportDocHeader.Find();
+                if ImportDocHeader."Auto Coding Status" = '' then begin
+                    ImportDocHeader."Auto Coding Status" := CopyStr('Auto Coding failed: ' + GetLastErrorText(), 1, 250);
+                    ImportDocHeader.Modify();
+                end;
+            end;
 
         // Mark as ready for review
         ImportDocHeader.Status := ImportDocHeader.Status::Ready;

@@ -52,7 +52,7 @@ codeunit 50100 "PaperTide AI Vision API"
         HttpRequest.SetRequestUri(Setup."API Base URL" + '/chat/completions');
         HttpRequest.Content(HttpContent);
         HttpRequest.GetHeaders(Headers);
-        Headers.Add('Authorization', StrSubstNo('Bearer %1', Setup."API Key"));
+        Headers.Add('Authorization', StrSubstNo('Bearer %1', Setup.GetAPIKey()));
 
         // Send request
         if not HttpClient.Send(HttpRequest, HttpResponse) then
@@ -83,7 +83,7 @@ codeunit 50100 "PaperTide AI Vision API"
         if not Setup.Get() then
             exit(false);
 
-        if (Setup."API Base URL" = '') or (Setup."API Key" = '') then
+        if (Setup."API Base URL" = '') or (not Setup.HasAPIKey()) then
             exit(false);
 
         // Simple test request with minimal payload
@@ -110,7 +110,7 @@ codeunit 50100 "PaperTide AI Vision API"
         HttpRequest.SetRequestUri(Setup."API Base URL" + '/chat/completions');
         HttpRequest.Content(HttpContent);
         HttpRequest.GetHeaders(Headers);
-        Headers.Add('Authorization', StrSubstNo('Bearer %1', Setup."API Key"));
+        Headers.Add('Authorization', StrSubstNo('Bearer %1', Setup.GetAPIKey()));
 
         exit(HttpClient.Send(HttpRequest, HttpResponse) and HttpResponse.IsSuccessStatusCode());
     end;
@@ -119,7 +119,7 @@ codeunit 50100 "PaperTide AI Vision API"
     begin
         if Setup."API Base URL" = '' then
             Error(SetupNotConfiguredErr);
-        if Setup."API Key" = '' then
+        if not Setup.HasAPIKey() then
             Error(SetupNotConfiguredErr);
         if Setup."Model Name" = '' then
             Error(SetupNotConfiguredErr);

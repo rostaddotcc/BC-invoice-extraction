@@ -407,6 +407,14 @@ codeunit 50101 "PaperTide Invoice Extraction"
                     PurchLine.Validate("Line Amount", ImportDocLine."Line Amount");
                 PurchLine.Insert(true);
 
+                // Apply dimension values after insert (requires line to exist)
+                if ImportDocLine."Shortcut Dimension 1 Code" <> '' then
+                    PurchLine.Validate("Shortcut Dimension 1 Code", ImportDocLine."Shortcut Dimension 1 Code");
+                if ImportDocLine."Shortcut Dimension 2 Code" <> '' then
+                    PurchLine.Validate("Shortcut Dimension 2 Code", ImportDocLine."Shortcut Dimension 2 Code");
+                if (ImportDocLine."Shortcut Dimension 1 Code" <> '') or (ImportDocLine."Shortcut Dimension 2 Code" <> '') then
+                    PurchLine.Modify(true);
+
                 LineNo += 10000;
             until ImportDocLine.Next() = 0;
         end else

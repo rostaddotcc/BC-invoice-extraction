@@ -245,6 +245,13 @@ page 50101 "PaperTide Invoice Preview"
                     ToolTip = 'Specifies the current processing status';
                     StyleExpr = ProcessingStatusStyle;
                 }
+                field("Auto Coding Status"; Rec."Auto Coding Status")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Result summary from the auto coding AI classification step';
+                    Editable = false;
+                    Visible = Rec."Auto Coding Status" <> '';
+                }
                 field("Error Message Display"; Rec."Error Message")
                 {
                     ApplicationArea = All;
@@ -344,8 +351,8 @@ page 50101 "PaperTide Invoice Preview"
             action(SuggestGLAccounts)
             {
                 ApplicationArea = All;
-                Caption = 'Suggest G/L Accounts';
-                ToolTip = 'Run AI-powered GL account classification on invoice lines';
+                Caption = 'Suggest Accounts';
+                ToolTip = 'Run AI-powered account/item classification on invoice lines';
                 Image = Suggest;
                 Promoted = true;
                 PromotedCategory = Process;
@@ -358,8 +365,9 @@ page 50101 "PaperTide Invoice Preview"
                 begin
                     SaveChanges();
                     GLAccountPredictor.PredictGLAccounts(Rec."Entry No.");
+                    Rec.Find();
                     CurrPage.Update(false);
-                    Message('GL account suggestions have been updated.');
+                    Message(Rec."Auto Coding Status");
                 end;
             }
             action(RunVerification)

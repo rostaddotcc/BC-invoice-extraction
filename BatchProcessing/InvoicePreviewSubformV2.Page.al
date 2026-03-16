@@ -99,18 +99,45 @@ page 50102 "PaperTide Inv. Preview Subform"
                         Rec.Modify();
                     end;
                 }
+                field("Shortcut Dimension 1 Code"; Rec."Shortcut Dimension 1 Code")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Specifies the dimension value code for the first global dimension';
+
+                    trigger OnValidate()
+                    begin
+                        Rec.Modify();
+                    end;
+                }
+                field("Shortcut Dimension 2 Code"; Rec."Shortcut Dimension 2 Code")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Specifies the dimension value code for the second global dimension';
+
+                    trigger OnValidate()
+                    begin
+                        Rec.Modify();
+                    end;
+                }
                 field("GL Suggestion Confidence"; Rec."GL Suggestion Confidence")
                 {
                     ApplicationArea = All;
-                    ToolTip = 'Confidence level of the AI GL account suggestion';
+                    ToolTip = 'Confidence level of the AI account/dimension suggestion';
                     Editable = false;
                     StyleExpr = ConfidenceStyle;
                     Width = 8;
                 }
+                field("Dimension Suggestion"; Rec."Dimension Suggestion")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Full dimension suggestion from AI classification';
+                    Editable = false;
+                    Visible = false;
+                }
                 field("GL Suggestion Reason"; Rec."GL Suggestion Reason")
                 {
                     ApplicationArea = All;
-                    ToolTip = 'Reason for the suggested GL account';
+                    ToolTip = 'Reason for the suggested account and dimensions';
                     Editable = false;
                     Visible = false;
                 }

@@ -51,7 +51,7 @@ Pending → Processing → Ready → Created
 ## Key Conventions
 
 - **Codeunits:** `Access = Internal` by default
-- **API Keys:** Use `SecretText` data type (encrypted at rest)
+- **API Keys:** Stored in `IsolatedStorage` (encrypted at rest, per-company isolation). Use `GetAPIKey()`/`SetAPIKey()`/`HasAPIKey()` procedures on the Setup table. Never read from the deprecated `Text[250]` fields directly.
 - **Error Handling:** Define error messages as global labels with `Lbl` suffix
 - **Try-Catch:** Use for external API calls, mark as Error status on failure
 - **Validation:** Check setup (API URL, Key, Model) before API calls

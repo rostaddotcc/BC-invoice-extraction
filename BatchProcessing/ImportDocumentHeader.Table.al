@@ -180,6 +180,12 @@ table 50102 "PaperTide Import Doc. Header"
             DataClassification = SystemMetadata;
             ToolTip = 'When processing started, used for stale document timeout detection';
         }
+        field(34; "Auto Coding Status"; Text[250])
+        {
+            Caption = 'Auto Coding Status';
+            DataClassification = SystemMetadata;
+            ToolTip = 'Result summary from the auto coding AI classification step';
+        }
     }
 
     keys

@@ -21,11 +21,19 @@ page 50100 "PaperTide AI Setup"
                     ApplicationArea = All;
                     ToolTip = 'Specifies the base URL for the AI API (e.g., https://api.openai.com/v1). Use Provider Presets for quick setup.';
                 }
-                field("API Key"; Rec."API Key")
+                field("API Key"; APIKeyValue)
                 {
                     ApplicationArea = All;
-                    ToolTip = 'Specifies the API key for authenticating with the AI service';
+                    Caption = 'API Key';
+                    ToolTip = 'Specifies the API key for authenticating with the AI service. Stored encrypted in Isolated Storage.';
                     ExtendedDatatype = Masked;
+
+                    trigger OnValidate()
+                    begin
+                        Rec.SetAPIKey(APIKeyValue);
+                        if APIKeyValue <> '' then
+                            APIKeyValue := '***';
+                    end;
                 }
                 field("Model Name"; Rec."Model Name")
                 {
@@ -100,11 +108,19 @@ page 50100 "PaperTide AI Setup"
                         ApplicationArea = All;
                         ToolTip = 'Base URL for the coding/classification AI API';
                     }
-                    field("Coding API Key"; Rec."Coding API Key")
+                    field("Coding API Key"; CodingAPIKeyValue)
                     {
                         ApplicationArea = All;
-                        ToolTip = 'API key for the coding/classification AI service';
+                        Caption = 'Coding API Key';
+                        ToolTip = 'API key for the coding/classification AI service. Stored encrypted in Isolated Storage.';
                         ExtendedDatatype = Masked;
+
+                        trigger OnValidate()
+                        begin
+                            Rec.SetCodingAPIKey(CodingAPIKeyValue);
+                            if CodingAPIKeyValue <> '' then
+                                CodingAPIKeyValue := '***';
+                        end;
                     }
                     field("Coding Model Name"; Rec."Coding Model Name")
                     {
@@ -432,6 +448,7 @@ page 50100 "PaperTide AI Setup"
     begin
         Rec.GetOrCreateSetup();
         SystemPromptText := Rec.GetSystemPrompt();
+        LoadAPIKeyIndicators();
     end;
 
     trigger OnQueryClosePage(CloseAction: Action): Boolean
@@ -441,6 +458,21 @@ page 50100 "PaperTide AI Setup"
         exit(true);
     end;
 
+    local procedure LoadAPIKeyIndicators()
+    begin
+        if Rec.HasAPIKey() then
+            APIKeyValue := '***'
+        else
+            APIKeyValue := '';
+
+        if Rec.HasCodingAPIKey() then
+            CodingAPIKeyValue := '***'
+        else
+            CodingAPIKeyValue := '';
+    end;
+
     var
         SystemPromptText: Text;
+        APIKeyValue: Text[250];
+        CodingAPIKeyValue: Text[250];
 }

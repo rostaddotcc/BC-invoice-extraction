@@ -8,19 +8,22 @@ A Per-Tenant Extension (PTE) for Business Central that uses AI vision models to 
 - **Full PDF Support** - Upload multi-page PDF invoices with automatic conversion to images via Gotenberg (all pages rendered)
 - **Multi-Page PDF Attachment** - Original PDF (all pages) attached to created Purchase Invoice
 - **Batch Import** - Upload and process multiple invoice images/PDFs simultaneously
-- **Concurrency Control** - Process up to 3 images at once with automatic queue management
+- **Concurrency Control** - Process up to 10 images at once with automatic queue management (configurable)
 - **Import Queue** - View and manage all imported documents with status tracking
 - **Preview & Edit** - Review extracted data with original image in FactBox before creating
-- **AI GL Account Suggestion** - AI analyzes your chart of accounts and suggests the most appropriate G/L account for each invoice line
-- **Auto Coding (Separate AI Model)** - Dedicated text AI model for GL account classification with confidence levels and reasoning
+- **Auto Coding** - Dedicated text AI model for account and item classification with confidence levels, reasoning, and dimension suggestions
+- **Item Support** - AI can suggest both G/L Accounts and Items based on your chart of accounts and item list
+- **Dimension Suggestions** - AI suggests dimension values (Global Dimension 1 & 2) based on posting history, editable before invoice creation
+- **AI GL Account Suggestion** - AI analyzes your chart of accounts and suggests the most appropriate G/L account for each invoice line (vision model mode)
 - **PO Number Extraction** - AI extracts purchase order references from invoices
 - **Vendor Name Learning** - System learns vendor name aliases from user corrections for automatic future matching
 - **Multi-Field Vendor Matching** - Match vendors by VAT Registration No., bank account/IBAN, name mapping, or name
 - **Fraud Detection** - Automated verification of VAT numbers and bank accounts against known vendor data
 - **Provider Agnostic** - Built-in presets for OpenAI, DashScope, Azure OpenAI, Groq, Ollama, LocalAI
 - **Configurable** - Set up your own API endpoint, model, system prompt, and default G/L account
-- **Secure** - API keys stored with masked display
+- **Secure API Key Storage** - API keys stored encrypted in Isolated Storage (per-company isolation, not visible in database backups)
 - **Status Tracking** - Track documents from Pending -> Processing -> Ready -> Created
+- **Auto Coding Status Logging** - See exactly what the AI classified and why, with detailed result summaries
 - **Duplicate Detection** - Prevent duplicate vendor invoice numbers
 
 ## Requirements
@@ -35,7 +38,7 @@ A Per-Tenant Extension (PTE) for Business Central that uses AI vision models to 
 ### 1. Clone/Copy the Project
 
 ```bash
-cd AIInvoiceExtractor
+cd paper-tide
 ```
 
 ### 2. Download Symbols
@@ -65,7 +68,7 @@ After publishing, configure the extension:
 | Field | Example Value | Description |
 |-------|---------------|-------------|
 | API Base URL | `https://api.openai.com/v1` | AI API endpoint (OpenAI-compatible) |
-| API Key | `sk-xxxxxxxx` | Your API key from your AI provider |
+| API Key | `sk-xxxxxxxx` | Your API key (stored encrypted in Isolated Storage) |
 | Model Name | `gpt-4o` | Vision model identifier |
 | Max Tokens | `2048` | Response length limit |
 | Temperature | `0.1` | AI creativity (0.0 = strict) |
@@ -76,14 +79,46 @@ After publishing, configure the extension:
 | PDF Converter Endpoint | `https://pdf.example.com` | Gotenberg service URL |
 | System Prompt | *(see below)* | Instructions for data extraction |
 
-### AI GL Account Suggestion
+### Auto Coding (Recommended)
 
-When **Enable AI GL Suggestion** is activated:
+Auto Coding uses a separate text AI model to classify invoice lines against your chart of accounts, item list, and dimension values. It runs automatically after vision extraction.
+
+1. Enable **"Enable Auto Coding"** in PaperTide AI Setup
+2. Configure the **Coding Model Connection** (can be the same or different provider):
+   - Coding API Base URL, Coding API Key, Coding Model Name
+3. Click **"Refresh Chart of Accounts"** to cache your G/L accounts
+4. The AI will:
+   - Classify each line as **G/L Account** or **Item** with the best matching number
+   - Suggest **dimension values** (Global Dimension 1 & 2) based on posting history
+   - Provide **confidence level** (High/Medium/Low) and **reasoning** per line
+5. Results are shown in the Preview page where you can review and edit before creating the invoice
+
+**What the AI considers:**
+- Line description, quantity, and amount
+- Your full chart of accounts (with categories and subcategories)
+- Your item list (with item category codes)
+- Available dimension values (Global Dimension 1 & 2)
+- Posting history from the same vendor (configurable: last N invoices within N days)
+- Dimension history from previous postings
+
+**Configuration options:**
+| Field | Default | Description |
+|-------|---------|-------------|
+| Chart Context Max Accounts | 200 | Max G/L accounts + items sent to AI |
+| Coding History Invoices | 10 | Recent posted invoices per vendor for context |
+| Coding History Days | 0 | Only include invoices from last N days (0 = no limit) |
+| Coding Max Tokens | 1024 | Max tokens for coding AI response |
+| Coding Temperature | 0.0 | Deterministic for consistent classification |
+
+### AI GL Account Suggestion (Vision Model Mode)
+
+When **Enable AI GL Suggestion** is activated (without Auto Coding):
 1. Click **Refresh Chart of Accounts** to cache your G/L accounts
-2. The AI will analyze each invoice line description
-3. Based on your chart of accounts, AI suggests the most appropriate G/L account
+2. The chart of accounts is included in the vision model's system prompt
+3. AI suggests G/L accounts directly during image extraction
 4. If AI cannot determine a match, the Default G/L Account is used as fallback
-5. You can always review and edit the suggested accounts in the Preview page
+
+*Note: When Auto Coding is enabled, it takes over GL suggestion with better accuracy (separate classification step with more context).*
 
 ### Vendor Name Mappings
 
@@ -125,32 +160,49 @@ The extension includes a default system prompt that instructs the AI to return J
 }
 ```
 
-*Note: `GLAccountNo` is automatically suggested by AI when AI GL Suggestion is enabled.*
-
 You can customize the system prompt in the setup page to match your specific invoice formats.
+
+### Auto Coding AI Response Format
+
+When Auto Coding is enabled, the classification AI returns:
+
+```json
+[
+  {
+    "LineNo": 10000,
+    "Type": "G/L Account",
+    "No": "6110",
+    "Dimensions": [
+      {"Code": "DEPARTMENT", "Value": "SALES"},
+      {"Code": "PROJECT", "Value": "P001"}
+    ],
+    "Confidence": "High",
+    "Reason": "Matches posting history for this vendor"
+  }
+]
+```
 
 ## Usage
 
 ### Workflow Overview
 
 ```
-Upload -> Process (AI) -> Verify -> Review -> Create Invoice
+Upload -> Process (AI) -> Auto Code -> Verify -> Review -> Create Invoice
 ```
 
-### 1. Batch Upload
+### 1. Upload Invoices
 
 1. Navigate to **Purchase Invoices** page
-2. Click **"Batch Upload Invoices"** in the ribbon
-3. Click **"Select Files"** button
-4. Select one or more JPG/PNG/PDF files (you can upload multiple files in sequence)
-5. Files are automatically queued and processed (max 3 concurrent)
-6. The **Processing Queue** shows counts: Pending, Processing, Ready for Review, Errors, Created
+2. Click **"PaperTide Upload"** in the ribbon
+3. Select one or more JPG/PNG/PDF files
+4. Files are automatically queued and processed (max concurrency configurable)
+5. The **Processing Queue** shows counts: Pending, Processing, Ready for Review, Errors, Created
 
 ### 2. Monitor Processing
 
 - **Pending**: Waiting for processing slot
 - **Processing**: AI extraction in progress
-- **Ready for Review**: Extraction complete, ready for your review
+- **Ready for Review**: Extraction + auto coding complete, ready for your review
 - **Errors**: Processing failed (hover to see error message)
 - **Created**: Invoice already created from this document
 
@@ -163,11 +215,15 @@ Upload -> Process (AI) -> Verify -> Review -> Create Invoice
 5. Review extracted data:
    - Header fields (Vendor, VAT No., Bank Account, Invoice No, Dates, PO Number, Amounts)
    - Fraud Detection section (Verification Status and messages)
-   - Line items in the subform
+   - Line items with Type, No., Description, Amounts
+   - **Dimension columns** (Global Dimension 1 & 2, editable)
+   - **Confidence & Reason** per line from Auto Coding
+   - **Auto Coding Status** summary in Document Information
    - Original image in the FactBox on the right
 6. Click **"Edit Values"** to enable editing if corrections are needed
-7. Click **"Verify"** to re-run fraud checks after edits
-8. Make corrections and fields will auto-save
+7. Click **"Suggest Accounts"** to re-run Auto Coding classification
+8. Click **"Verify"** to re-run fraud checks after edits
+9. Make corrections and fields will auto-save
 
 ### 4. Fraud Detection
 
@@ -197,7 +253,8 @@ The system automatically verifies extracted data against known vendor records:
 4. Purchase Invoice is created with:
    - Header data from extracted information
    - PO Number stored as Vendor Order No.
-   - Lines from extracted line items (or one line with total if no lines)
+   - Lines with Type (G/L Account or Item), No., and amounts
+   - **Dimension values** (Shortcut Dimension 1 & 2) applied to purchase lines
    - Original PDF or image attached as Document Attachment
 5. Document status changes to **"Created"**
 6. Created invoice opens automatically
@@ -228,9 +285,9 @@ When the AI extracts vendor information, matching follows this priority:
 ```
 User selects multiple images/PDFs
         |
-[PaperTide Batch Upload] -> Queue files (PDF -> buffer original + Gotenberg -> PNG)
+[PaperTide Upload] -> Queue files (PDF -> buffer original + Gotenberg -> PNG)
         |
-[PaperTide Batch Processing Mgt] -> Concurrency control (max 3)
+[PaperTide Batch Processing Mgt] -> Concurrency control (configurable)
         |
 [PaperTide Batch API Worker] -> Process each image
         |
@@ -240,13 +297,15 @@ AI vision model processes image
         |
 [PaperTide Invoice Extraction] -> Parse JSON + Vendor Lookup + Verify
         |
+[PaperTide GL Account Predictor] -> Auto Code lines (account + item + dimensions)
+        |
 Save to Import Document Header + Lines
         |
 [PaperTide Import Documents] -> Display with status + verification
         |
-User opens PaperTide Invoice Preview -> Review, verify & edit
+User opens PaperTide Invoice Preview -> Review, verify & edit dimensions
         |
-Create Purchase Header + Lines + Attach PDF/image
+Create Purchase Header + Lines (with dimensions) + Attach PDF/image
         |
 Mark Import Document as "Created"
 ```
@@ -268,6 +327,17 @@ Pending -> Processing -> Ready -> Created
 | **Error** | Processing failed, can be retried |
 | **Discarded** | Manually discarded by user |
 
+## Security
+
+| Aspect | Implementation |
+|--------|---------------|
+| API Key Storage | Encrypted in Isolated Storage (per-company, not in DB backups) |
+| Auto-Migration | Existing plain-text keys automatically migrated to Isolated Storage |
+| HTTP Security | HTTPS enforced for external API calls |
+| File Upload | Whitelist validation (JPG/JPEG/PNG/PDF) |
+| Data Classification | CustomerContent / EndUserIdentifiableInformation |
+| Permissions | Dedicated permission set |
+
 ## Technical Details
 
 ### ID Ranges
@@ -284,19 +354,18 @@ Pending -> Processing -> Ready -> Created
 | PaperTide AI Setup | Table | 50100 | Configuration storage (singleton) |
 | PaperTide Temp Invoice Buffer | Table | 50101 | Temporary data for preview |
 | PaperTide Import Doc. Header | Table | 50102 | Persistent queue for batch processing |
-| PaperTide Import Doc. Line | Table | 50103 | Extracted line items |
+| PaperTide Import Doc. Line | Table | 50103 | Extracted line items with dimensions |
 | PaperTide Vendor Name Mapping | Table | 50104 | Learned vendor name aliases |
 | PaperTide AI Vision API | Codeunit | 50100 | HTTP client for AI service |
 | PaperTide Invoice Extraction | Codeunit | 50101 | Parser, vendor lookup, verification, invoice creation |
 | PaperTide Batch Processing Mgt | Codeunit | 50102 | Queue and concurrency management |
 | PaperTide Batch API Worker | Codeunit | 50103 | Individual document processor |
 | PaperTide PDF Converter | Codeunit | 50104 | PDF-to-image conversion via Gotenberg |
-| PaperTide GL Account Predictor | Codeunit | 50106 | GL account classification via text AI model |
+| PaperTide GL Account Predictor | Codeunit | 50106 | Account, item, and dimension classification via text AI |
 | PaperTide AI Setup | Page | 50100 | Setup card |
 | PaperTide Invoice Preview | Page | 50101 | Review interface with fraud detection and image FactBox |
-| PaperTide Inv. Preview Subform | Page | 50102 | Invoice line subform |
+| PaperTide Inv. Preview Subform | Page | 50102 | Invoice line subform with dimensions |
 | PaperTide Inv. Image FactBox | Page | 50103 | Image preview FactBox |
-| PaperTide Batch Upload | Page | 50104 | Multi-file upload interface |
 | PaperTide Import Documents | Page | 50105 | Document queue with verification status |
 | PaperTide Vendor Mappings | Page | 50106 | Manage vendor name aliases |
 | PaperTide Purch. Inv. List Ext | PageExtension | 50100 | Purchase Invoice list extension |
@@ -325,18 +394,18 @@ Pending -> Processing -> Ready -> Created
 - Try with a clearer invoice image
 - Check that the image format is JPG or PNG
 
+### Auto Coding completes but no accounts assigned
+- Check the **Auto Coding Status** field on the document for details
+- Ensure you have clicked **"Refresh Chart of Accounts"** in setup
+- Verify your Coding API connection works (**"Test Coding Connection"**)
+- If status shows "API call failed" or "Failed to parse AI response", check your coding model configuration
+- The AI must return valid account numbers that exist in your chart of accounts
+- Check that G/L accounts are not blocked and are of type Posting
+
 ### "Image Blob is empty"
 - The uploaded file may be corrupted
 - Try uploading the image again
 - Check that the file is not 0 bytes
-
-### "Import document not found"
-- The document may have been deleted
-- Check the Import Document Queue
-
-### "Invoice already created for this document"
-- The document has already been processed
-- View the created invoice using "View Created Invoice" action
 
 ### Extension won't publish
 - Ensure `allowHttpClientRequests` is enabled in extension settings
@@ -347,6 +416,20 @@ Pending -> Processing -> Ready -> Created
 - Go to Users -> select your user -> Permission Sets -> add "PaperTide"
 
 ## Changelog
+
+### v1.1.0.0 (2026-03-16)
+- **Secure API Key Storage** - All API keys (Vision, Coding, PDF Converter) migrated from plain-text database fields to encrypted Isolated Storage with per-company isolation. Existing keys are automatically migrated on first access.
+- **Auto Coding: Item Support** - AI can now suggest Items in addition to G/L Accounts. Line Type is set automatically based on AI classification.
+- **Auto Coding: Dimension Suggestions** - AI suggests Global Dimension 1 & 2 values based on posting history and available dimension values. Dimensions are editable in the preview before invoice creation.
+- **Auto Coding: Improved Reliability** - Fallback index-based line matching when AI returns incorrect LineNo values. Detailed status logging instead of silent failures.
+- **Auto Coding: Better Prompt** - AI now always suggests an account (never leaves lines empty), includes item list and dimension values in context.
+- **Editable Dimensions in Preview** - Shortcut Dimension 1 & 2 columns added to invoice line preview with lookup to dimension values.
+- **Dimensions Applied to Purchase Invoice** - Dimension values from preview are applied to purchase lines when creating the invoice.
+- **Auto Coding Status** - New field on Import Document showing classification results (e.g., "3 of 4 lines classified: 2 High, 1 Medium, 0 Low").
+
+### v1.0.2.2 (2026-03-16)
+- Removed Batch Upload page; PaperTide Upload action now opens file dialog directly from Purchase Invoices toolbar
+- Fix batch concurrency race condition, add stuck document recovery
 
 ### v1.0.2.1 (2026-03-15)
 - **Multi-Page PDF Support** - All pages from multi-page PDFs are now rendered and sent to the AI, not just the first page. Pages are stacked vertically into a single image for complete document analysis.
@@ -382,18 +465,15 @@ Pending -> Processing -> Ready -> Created
 - Batch processing with concurrency control
 - Invoice image preview and document attachment
 
-## Future Enhancements
+## Upcoming Features
 
-- [ ] **Vendor Invoice Defaults** - Per-vendor setup for default line type (G/L Account or Item), default allocation account, and other invoice creation defaults
-- [ ] **Purchase Order Linking** - Automatically link invoices to existing POs via extracted PO number and "Get Receipt Lines"
-- [ ] **VIES VAT Validation** - Validate vendor VAT numbers against the EU VIES service at import, using vendor card Country Code + VAT No.
+- [ ] **Vendor Auto Coding Setup** - Per-vendor configuration for auto coding preferences: default line type, preferred G/L accounts, dimension defaults, and classification rules. Each vendor gets its own coding profile for maximum accuracy.
+- [ ] **Email Inbox Monitoring** - Configure a REST email endpoint to automatically fetch PDF/image attachments from a shared mailbox with job queue polling
+- [ ] **Purchase Order Matching** - Automatically link invoices to existing POs via extracted PO number and "Get Receipt Lines"
+- [ ] **VIES VAT Validation** - Validate vendor VAT numbers against the EU VIES service at import
 - [ ] **Azure File Storage Import** - Connect to Azure File Storage for automated invoice import
 - [ ] Confidence scores per extracted field
-- [ ] Highlight low-confidence fields for review
 - [ ] Configurable field mapping for non-standard invoices
-- [ ] Email integration (monitor inbox for invoice attachments)
-- [ ] Azure Document AI as alternative provider
-- [ ] Historical pattern learning for GL account suggestions
 - [ ] Mobile app for camera capture
 - [ ] Automatic approval for high-confidence extractions
 
@@ -407,7 +487,7 @@ For issues or questions, contact your Business Central partner or development te
 
 ---
 
-**Version:** 1.0.2.1
+**Version:** 1.1.0.0
 **Compatible with:** Business Central 27.4+
 **Runtime:** 14.0+
-**Last Updated:** 2026-03-15
+**Last Updated:** 2026-03-16

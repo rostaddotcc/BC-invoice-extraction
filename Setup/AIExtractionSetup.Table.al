@@ -19,9 +19,11 @@ table 50100 "PaperTide AI Setup"
         field(3; "API Key"; Text[250])
         {
             Caption = 'API Key';
-            DataClassification = CustomerContent;
+            DataClassification = EndUserIdentifiableInformation;
             ToolTip = 'Specifies the API key for authenticating with the AI service';
             ExtendedDatatype = Masked;
+            ObsoleteState = Pending;
+            ObsoleteReason = 'Moved to Isolated Storage for encryption at rest. Use GetAPIKey/SetAPIKey procedures instead.';
         }
         field(4; "Model Name"; Text[50])
         {
@@ -107,9 +109,11 @@ table 50100 "PaperTide AI Setup"
         field(22; "PDF Converter API Key"; Text[250])
         {
             Caption = 'PDF Converter API Key';
-            DataClassification = CustomerContent;
+            DataClassification = EndUserIdentifiableInformation;
             ToolTip = 'Optional API key if the PDF conversion service requires authentication';
             ExtendedDatatype = Masked;
+            ObsoleteState = Pending;
+            ObsoleteReason = 'Moved to Isolated Storage for encryption at rest. Use GetPDFConverterAPIKey/SetPDFConverterAPIKey procedures instead.';
         }
         field(110; "Enable Auto Coding"; Boolean)
         {
@@ -127,9 +131,11 @@ table 50100 "PaperTide AI Setup"
         field(112; "Coding API Key"; Text[250])
         {
             Caption = 'Coding API Key';
-            DataClassification = CustomerContent;
+            DataClassification = EndUserIdentifiableInformation;
             ToolTip = 'API key for the coding/classification AI service';
             ExtendedDatatype = Masked;
+            ObsoleteState = Pending;
+            ObsoleteReason = 'Moved to Isolated Storage for encryption at rest. Use GetCodingAPIKey/SetCodingAPIKey procedures instead.';
         }
         field(113; "Coding Model Name"; Text[50])
         {
@@ -436,20 +442,123 @@ table 50100 "PaperTide AI Setup"
     procedure GetDefaultCodingSystemPrompt(): Text
     begin
         exit(
-            'You are an expert accounting classification system. Assign the most appropriate ' +
-            'G/L account number to each invoice line based on its description.\n\n' +
+            'You are an expert accounting classification system. For each invoice line, assign ' +
+            'the most appropriate account from the provided chart of accounts or item list, ' +
+            'and suggest dimension values based on posting history and line context.\n\n' +
             'Rules:\n' +
-            '1. Only use account numbers from the provided chart of accounts.\n' +
-            '2. Consider the line description, amount, vendor context, and posting history.\n' +
-            '3. If posting history is provided, strongly prefer the same accounts and dimensions ' +
+            '1. Only use account/item numbers from the provided chart of accounts and item list.\n' +
+            '2. Only use dimension codes and values from the provided dimension list.\n' +
+            '3. Consider the line description, amount, vendor context, and posting history.\n' +
+            '4. If posting history is provided, strongly prefer the same accounts, types, and dimensions ' +
             'used for similar line descriptions from the same vendor.\n' +
-            '4. Return ONLY valid JSON array, one object per line, same order as input.\n' +
-            '5. Each object: {"LineNo": 10000, "GLAccountNo": "6110", "Confidence": "High", "Reason": "..."}\n' +
-            '6. Confidence levels: "High" = strong match from history or obvious category, ' +
-            '"Medium" = reasonable match, "Low" = uncertain.\n' +
-            '7. If unsure, return empty GLAccountNo with Confidence "Low".'
+            '5. Return ONLY valid JSON array, one object per line, same order as input.\n' +
+            '6. Each object: {"LineNo": 10000, "Type": "G/L Account", "No": "6110", ' +
+            '"Dimensions": [{"Code": "DEPARTMENT", "Value": "SALES"}], ' +
+            '"Confidence": "High", "Reason": "..."}\n' +
+            '7. Type must be one of: "G/L Account", "Item". Default to "G/L Account" if uncertain.\n' +
+            '8. Confidence levels: "High" = strong match from history or obvious category, ' +
+            '"Medium" = reasonable match, "Low" = best guess.\n' +
+            '9. ALWAYS suggest an account or item for every line. Never leave No empty. ' +
+            'If uncertain, pick the most reasonable match and set Confidence to "Low".\n' +
+            '10. The LineNo value MUST exactly match the LineNo from the input (e.g., 10000, 20000).\n' +
+            '11. Dimensions array is optional. Only include dimensions you are confident about. ' +
+            'Prefer dimensions from posting history for the same vendor and similar descriptions.'
         );
     end;
+
+    // region Isolated Storage for API Keys
+
+    procedure SetAPIKey(ApiKeyValue: Text)
+    begin
+        if ApiKeyValue = '' then begin
+            if IsolatedStorage.Contains(APIKeyIsoStorageKeyLbl, DataScope::Company) then
+                IsolatedStorage.Delete(APIKeyIsoStorageKeyLbl, DataScope::Company);
+        end else
+            IsolatedStorage.Set(APIKeyIsoStorageKeyLbl, ApiKeyValue, DataScope::Company);
+    end;
+
+    procedure GetAPIKey(): Text
+    var
+        ApiKeyValue: Text;
+    begin
+        if IsolatedStorage.Get(APIKeyIsoStorageKeyLbl, DataScope::Company, ApiKeyValue) then
+            exit(ApiKeyValue);
+        exit('');
+    end;
+
+    procedure HasAPIKey(): Boolean
+    begin
+        exit(IsolatedStorage.Contains(APIKeyIsoStorageKeyLbl, DataScope::Company));
+    end;
+
+    procedure SetPDFConverterAPIKey(ApiKeyValue: Text)
+    begin
+        if ApiKeyValue = '' then begin
+            if IsolatedStorage.Contains(PDFConverterAPIKeyIsoStorageKeyLbl, DataScope::Company) then
+                IsolatedStorage.Delete(PDFConverterAPIKeyIsoStorageKeyLbl, DataScope::Company);
+        end else
+            IsolatedStorage.Set(PDFConverterAPIKeyIsoStorageKeyLbl, ApiKeyValue, DataScope::Company);
+    end;
+
+    procedure GetPDFConverterAPIKey(): Text
+    var
+        ApiKeyValue: Text;
+    begin
+        if IsolatedStorage.Get(PDFConverterAPIKeyIsoStorageKeyLbl, DataScope::Company, ApiKeyValue) then
+            exit(ApiKeyValue);
+        exit('');
+    end;
+
+    procedure HasPDFConverterAPIKey(): Boolean
+    begin
+        exit(IsolatedStorage.Contains(PDFConverterAPIKeyIsoStorageKeyLbl, DataScope::Company));
+    end;
+
+    procedure SetCodingAPIKey(ApiKeyValue: Text)
+    begin
+        if ApiKeyValue = '' then begin
+            if IsolatedStorage.Contains(CodingAPIKeyIsoStorageKeyLbl, DataScope::Company) then
+                IsolatedStorage.Delete(CodingAPIKeyIsoStorageKeyLbl, DataScope::Company);
+        end else
+            IsolatedStorage.Set(CodingAPIKeyIsoStorageKeyLbl, ApiKeyValue, DataScope::Company);
+    end;
+
+    procedure GetCodingAPIKey(): Text
+    var
+        ApiKeyValue: Text;
+    begin
+        if IsolatedStorage.Get(CodingAPIKeyIsoStorageKeyLbl, DataScope::Company, ApiKeyValue) then
+            exit(ApiKeyValue);
+        exit('');
+    end;
+
+    procedure HasCodingAPIKey(): Boolean
+    begin
+        exit(IsolatedStorage.Contains(CodingAPIKeyIsoStorageKeyLbl, DataScope::Company));
+    end;
+
+    procedure MigrateKeysToIsolatedStorage()
+    begin
+        // Migrate API keys from plain-text table fields to encrypted Isolated Storage
+        if "API Key" <> '' then begin
+            if not IsolatedStorage.Contains(APIKeyIsoStorageKeyLbl, DataScope::Company) then
+                IsolatedStorage.Set(APIKeyIsoStorageKeyLbl, "API Key", DataScope::Company);
+            Clear("API Key");
+        end;
+        if "PDF Converter API Key" <> '' then begin
+            if not IsolatedStorage.Contains(PDFConverterAPIKeyIsoStorageKeyLbl, DataScope::Company) then
+                IsolatedStorage.Set(PDFConverterAPIKeyIsoStorageKeyLbl, "PDF Converter API Key", DataScope::Company);
+            Clear("PDF Converter API Key");
+        end;
+        if "Coding API Key" <> '' then begin
+            if not IsolatedStorage.Contains(CodingAPIKeyIsoStorageKeyLbl, DataScope::Company) then
+                IsolatedStorage.Set(CodingAPIKeyIsoStorageKeyLbl, "Coding API Key", DataScope::Company);
+            Clear("Coding API Key");
+        end;
+        Modify();
+    end;
+
+    // endregion
 
     procedure GetOrCreateSetup(): Record "PaperTide AI Setup"
     begin
@@ -463,6 +572,16 @@ table 50100 "PaperTide AI Setup"
             "Processing Timeout (min)" := 5;
             Insert();
         end;
+
+        // Auto-migrate any plain-text API keys to Isolated Storage
+        if ("API Key" <> '') or ("PDF Converter API Key" <> '') or ("Coding API Key" <> '') then
+            MigrateKeysToIsolatedStorage();
+
         exit(Rec);
     end;
+
+    var
+        APIKeyIsoStorageKeyLbl: Label 'PaperTide_APIKey', Locked = true;
+        PDFConverterAPIKeyIsoStorageKeyLbl: Label 'PaperTide_PDFConverterAPIKey', Locked = true;
+        CodingAPIKeyIsoStorageKeyLbl: Label 'PaperTide_CodingAPIKey', Locked = true;
 }

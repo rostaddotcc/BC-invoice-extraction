@@ -6,6 +6,7 @@ codeunit 50106 "PaperTide GL Account Predictor"
         SetupNotConfiguredErr: Label 'Auto Coding is not configured. Please configure Coding API Base URL, Key, and Model in PaperTide AI Setup.';
         HttpRequestFailedErr: Label 'Coding API request failed with status code: %1\Error: %2';
         InvalidResponseErr: Label 'Invalid response from coding AI: %1';
+        AutoCodingResultLbl: Label 'Auto Coding: %1 of %2 lines classified (%3 High, %4 Medium, %5 Low). %6';
 
     procedure PredictGLAccounts(EntryNo: Integer)
     var
@@ -15,6 +16,7 @@ codeunit 50106 "PaperTide GL Account Predictor"
         RequestBody: Text;
         ResponseText: Text;
         ResponseJson: JsonArray;
+        ResultSummary: Text;
     begin
         if not AISetup.Get() then
             exit;
@@ -31,15 +33,20 @@ codeunit 50106 "PaperTide GL Account Predictor"
 
         // Build request and call API
         RequestBody := BuildRequestBody(AISetup, ImportDocHeader, ImportDocLine);
-        if not CallCodingAPI(AISetup, RequestBody, ResponseText) then
+        if not CallCodingAPI(AISetup, RequestBody, ResponseText) then begin
+            SetAutoCodingStatus(ImportDocHeader, 'Auto Coding: API call failed');
             exit;
+        end;
 
         // Parse response
-        if not ParseResponse(ResponseText, ResponseJson) then
+        if not ParseResponse(ResponseText, ResponseJson) then begin
+            SetAutoCodingStatus(ImportDocHeader, 'Auto Coding: Failed to parse AI response');
             exit;
+        end;
 
         // Apply predictions to import document lines
-        ApplyPredictions(EntryNo, ResponseJson);
+        ResultSummary := ApplyPredictions(EntryNo, ResponseJson);
+        SetAutoCodingStatus(ImportDocHeader, ResultSummary);
     end;
 
     [TryFunction]
@@ -62,7 +69,7 @@ codeunit 50106 "PaperTide GL Account Predictor"
         if not AISetup.Get() then
             exit(false);
 
-        if (AISetup."Coding API Base URL" = '') or (AISetup."Coding API Key" = '') then
+        if (AISetup."Coding API Base URL" = '') or (not AISetup.HasCodingAPIKey()) then
             exit(false);
 
         RequestBody := '{' +
@@ -85,7 +92,7 @@ codeunit 50106 "PaperTide GL Account Predictor"
         HttpRequest.SetRequestUri(AISetup."Coding API Base URL" + '/chat/completions');
         HttpRequest.Content(HttpContent);
         HttpRequest.GetHeaders(Headers);
-        Headers.Add('Authorization', StrSubstNo('Bearer %1', AISetup."Coding API Key"));
+        Headers.Add('Authorization', StrSubstNo('Bearer %1', AISetup.GetCodingAPIKey()));
 
         exit(HttpClient.Send(HttpRequest, HttpResponse) and HttpResponse.IsSuccessStatusCode());
     end;
@@ -102,7 +109,8 @@ codeunit 50106 "PaperTide GL Account Predictor"
         SystemPromptText: Text;
         UserMessageText: Text;
         ChartContext: Text;
-        HistoryContext: Text;
+        ItemContext: Text;
+        DimensionContext: Text;
     begin
         // Build system prompt with chart of accounts
         SystemPromptText := AISetup.GetCodingSystemPrompt();
@@ -112,12 +120,21 @@ codeunit 50106 "PaperTide GL Account Predictor"
 
         // Chart of accounts context
         ChartContext := AISetup.GetChartOfAccountsContext();
-        if ChartContext = '' then begin
+        if ChartContext = '' then
             ChartContext := AISetup.BuildChartOfAccountsContextV2();
-        end;
 
         if ChartContext <> '' then
-            UserMessageText += '\n\nChart of Accounts:\n' + ChartContext;
+            UserMessageText += '\n\nChart of Accounts (Type: G/L Account):\n' + ChartContext;
+
+        // Item context
+        ItemContext := BuildItemContext(AISetup);
+        if ItemContext <> '' then
+            UserMessageText += '\n\nItems (Type: Item):\n' + ItemContext;
+
+        // Dimension values context
+        DimensionContext := BuildDimensionContext();
+        if DimensionContext <> '' then
+            UserMessageText += '\n\n' + DimensionContext;
 
         // System message
         SystemMsg.Add('role', 'system');
@@ -137,6 +154,97 @@ codeunit 50106 "PaperTide GL Account Predictor"
 
         JsonObj.WriteTo(UserMessageText);
         exit(UserMessageText);
+    end;
+
+    local procedure BuildItemContext(AISetup: Record "PaperTide AI Setup"): Text
+    var
+        Item: Record Item;
+        Context: Text;
+        LineCount: Integer;
+        MaxItems: Integer;
+    begin
+        Context := '';
+        LineCount := 0;
+        MaxItems := AISetup."Chart Context Max Accounts";
+        if MaxItems <= 0 then
+            MaxItems := 200;
+
+        Item.SetRange(Blocked, false);
+        if Item.FindSet() then begin
+            repeat
+                if Context <> '' then
+                    Context += '\n';
+                Context += '- ' + Item."No." + ': ' + Item.Description;
+                if Item."Item Category Code" <> '' then
+                    Context += ' (Category: ' + Item."Item Category Code" + ')';
+                LineCount += 1;
+
+                if LineCount >= MaxItems then
+                    break;
+            until Item.Next() = 0;
+        end;
+
+        exit(Context);
+    end;
+
+    local procedure BuildDimensionContext(): Text
+    var
+        GeneralLedgerSetup: Record "General Ledger Setup";
+        Dimension: Record Dimension;
+        DimensionValue: Record "Dimension Value";
+        Context: Text;
+        DimCount: Integer;
+        ValueCount: Integer;
+    begin
+        if not GeneralLedgerSetup.Get() then
+            exit('');
+
+        Context := 'Available Dimensions for line classification:';
+
+        // Global Dimension 1
+        if GeneralLedgerSetup."Global Dimension 1 Code" <> '' then begin
+            if Dimension.Get(GeneralLedgerSetup."Global Dimension 1 Code") then begin
+                Context += '\n\nDimension 1: ' + Dimension.Code + ' (' + Dimension.Name + ')';
+                Context += '\nValues:';
+                DimensionValue.SetRange("Dimension Code", Dimension.Code);
+                DimensionValue.SetRange("Dimension Value Type", DimensionValue."Dimension Value Type"::Standard);
+                DimensionValue.SetRange(Blocked, false);
+                ValueCount := 0;
+                if DimensionValue.FindSet() then
+                    repeat
+                        Context += '\n- ' + DimensionValue.Code + ': ' + DimensionValue.Name;
+                        ValueCount += 1;
+                        if ValueCount >= 100 then
+                            break;
+                    until DimensionValue.Next() = 0;
+                DimCount += 1;
+            end;
+        end;
+
+        // Global Dimension 2
+        if GeneralLedgerSetup."Global Dimension 2 Code" <> '' then begin
+            if Dimension.Get(GeneralLedgerSetup."Global Dimension 2 Code") then begin
+                Context += '\n\nDimension 2: ' + Dimension.Code + ' (' + Dimension.Name + ')';
+                Context += '\nValues:';
+                DimensionValue.SetRange("Dimension Code", Dimension.Code);
+                DimensionValue.SetRange("Dimension Value Type", DimensionValue."Dimension Value Type"::Standard);
+                DimensionValue.SetRange(Blocked, false);
+                ValueCount := 0;
+                if DimensionValue.FindSet() then
+                    repeat
+                        Context += '\n- ' + DimensionValue.Code + ': ' + DimensionValue.Name;
+                        ValueCount += 1;
+                        if ValueCount >= 100 then
+                            break;
+                    until DimensionValue.Next() = 0;
+                DimCount += 1;
+            end;
+        end;
+
+        if DimCount = 0 then
+            exit('');
+
+        exit(Context);
     end;
 
     local procedure BuildUserMessage(
@@ -278,7 +386,7 @@ codeunit 50106 "PaperTide GL Account Predictor"
         HttpRequest.SetRequestUri(AISetup."Coding API Base URL" + '/chat/completions');
         HttpRequest.Content(HttpContent);
         HttpRequest.GetHeaders(Headers);
-        Headers.Add('Authorization', StrSubstNo('Bearer %1', AISetup."Coding API Key"));
+        Headers.Add('Authorization', StrSubstNo('Bearer %1', AISetup.GetCodingAPIKey()));
 
         if not HttpClient.Send(HttpRequest, HttpResponse) then
             exit(false);
@@ -296,7 +404,7 @@ codeunit 50106 "PaperTide GL Account Predictor"
     begin
         if AISetup."Coding API Base URL" = '' then
             Error(SetupNotConfiguredErr);
-        if AISetup."Coding API Key" = '' then
+        if not AISetup.HasCodingAPIKey() then
             Error(SetupNotConfiguredErr);
         if AISetup."Coding Model Name" = '' then
             Error(SetupNotConfiguredErr);
@@ -355,49 +463,190 @@ codeunit 50106 "PaperTide GL Account Predictor"
         CleanText := CleanText.Trim();
     end;
 
-    local procedure ApplyPredictions(EntryNo: Integer; PredictionsArr: JsonArray)
+    local procedure ApplyPredictions(EntryNo: Integer; PredictionsArr: JsonArray): Text
     var
         ImportDocLine: Record "PaperTide Import Doc. Line";
         PredictionToken: JsonToken;
         PredictionObj: JsonObject;
         LineNo: Integer;
-        GLAccountNo: Code[20];
+        AccountNo: Code[20];
+        LineType: Text;
         Confidence: Text[10];
         Reason: Text[250];
         i: Integer;
+        TotalLines: Integer;
+        ClassifiedCount: Integer;
+        HighCount: Integer;
+        MediumCount: Integer;
+        LowCount: Integer;
+        ExtraInfo: Text;
+        MatchedByIndex: Boolean;
+        LineNumbers: List of [Integer];
     begin
+        // Collect line numbers in order for index-based fallback matching
+        ImportDocLine.SetRange("Entry No.", EntryNo);
+        if ImportDocLine.FindSet() then
+            repeat
+                LineNumbers.Add(ImportDocLine."Line No.");
+                TotalLines += 1;
+            until ImportDocLine.Next() = 0;
+
         for i := 0 to PredictionsArr.Count() - 1 do begin
             PredictionsArr.Get(i, PredictionToken);
             PredictionObj := PredictionToken.AsObject();
 
             LineNo := GetJsonIntValue(PredictionObj, 'LineNo');
-            GLAccountNo := CopyStr(GetJsonTextValue(PredictionObj, 'GLAccountNo'), 1, 20);
+            AccountNo := CopyStr(GetJsonTextValue(PredictionObj, 'No'), 1, 20);
+            // Fallback: check old field name GLAccountNo for backward compatibility
+            if AccountNo = '' then
+                AccountNo := CopyStr(GetJsonTextValue(PredictionObj, 'GLAccountNo'), 1, 20);
+            LineType := GetJsonTextValue(PredictionObj, 'Type');
             Confidence := CopyStr(GetJsonTextValue(PredictionObj, 'Confidence'), 1, 10);
             Reason := CopyStr(GetJsonTextValue(PredictionObj, 'Reason'), 1, 250);
 
-            if ImportDocLine.Get(EntryNo, LineNo) then begin
-                // Validate GL account before applying
-                if (GLAccountNo <> '') and ValidateGLAccount(GLAccountNo) then
-                    ImportDocLine."No." := GLAccountNo;
+            // Try exact LineNo match first
+            MatchedByIndex := false;
+            if not ImportDocLine.Get(EntryNo, LineNo) then begin
+                // Fallback: match by array index (AI returned wrong LineNo)
+                if (i + 1) <= LineNumbers.Count() then begin
+                    LineNumbers.Get(i + 1, LineNo);
+                    if ImportDocLine.Get(EntryNo, LineNo) then begin
+                        MatchedByIndex := true;
+                    end else
+                        // Could not match at all, skip
+                        AccountNo := '';  // Force skip
+                end;
+            end;
+
+            if ImportDocLine."Entry No." = EntryNo then begin
+                // Determine and set line type
+                if UpperCase(LineType) = 'ITEM' then
+                    ImportDocLine.Type := ImportDocLine.Type::Item
+                else
+                    ImportDocLine.Type := ImportDocLine.Type::"G/L Account";
+
+                // Validate account/item before applying
+                if (AccountNo <> '') and ValidateLineNo(ImportDocLine.Type, AccountNo) then begin
+                    ImportDocLine."No." := AccountNo;
+                    ClassifiedCount += 1;
+
+                    case UpperCase(Confidence) of
+                        'HIGH':
+                            HighCount += 1;
+                        'MEDIUM':
+                            MediumCount += 1;
+                        else
+                            LowCount += 1;
+                    end;
+                end;
+
+                // Apply dimension suggestions
+                ApplyDimensionSuggestions(ImportDocLine, PredictionObj);
 
                 ImportDocLine."GL Suggestion Confidence" := Confidence;
+                if MatchedByIndex then
+                    Reason := CopyStr('[Matched by index] ' + Reason, 1, 250);
                 ImportDocLine."GL Suggestion Reason" := Reason;
                 ImportDocLine.Modify();
             end;
         end;
+
+        ExtraInfo := '';
+        if PredictionsArr.Count() <> TotalLines then
+            ExtraInfo := StrSubstNo('AI returned %1 predictions for %2 lines.', PredictionsArr.Count(), TotalLines);
+
+        exit(StrSubstNo(AutoCodingResultLbl, ClassifiedCount, TotalLines, HighCount, MediumCount, LowCount, ExtraInfo));
     end;
 
-    local procedure ValidateGLAccount(AccountNo: Code[20]): Boolean
+    local procedure ValidateLineNo(LineType: Enum "Purchase Line Type"; AccountNo: Code[20]): Boolean
     var
         GLAccount: Record "G/L Account";
+        Item: Record Item;
     begin
-        if not GLAccount.Get(AccountNo) then
-            exit(false);
-        if GLAccount."Account Type" <> GLAccount."Account Type"::Posting then
-            exit(false);
-        if GLAccount.Blocked then
-            exit(false);
-        exit(true);
+        case LineType of
+            LineType::"G/L Account":
+                begin
+                    if not GLAccount.Get(AccountNo) then
+                        exit(false);
+                    if GLAccount."Account Type" <> GLAccount."Account Type"::Posting then
+                        exit(false);
+                    if GLAccount.Blocked then
+                        exit(false);
+                    exit(true);
+                end;
+            LineType::Item:
+                begin
+                    if not Item.Get(AccountNo) then
+                        exit(false);
+                    if Item.Blocked then
+                        exit(false);
+                    exit(true);
+                end;
+            else
+                exit(false);
+        end;
+    end;
+
+    local procedure ApplyDimensionSuggestions(var ImportDocLine: Record "PaperTide Import Doc. Line"; PredictionObj: JsonObject)
+    var
+        GeneralLedgerSetup: Record "General Ledger Setup";
+        DimensionValue: Record "Dimension Value";
+        DimensionsToken: JsonToken;
+        DimensionsArr: JsonArray;
+        DimToken: JsonToken;
+        DimObj: JsonObject;
+        DimCode: Code[20];
+        DimValueCode: Code[20];
+        DimSuggestionText: Text;
+        j: Integer;
+    begin
+        if not PredictionObj.Get('Dimensions', DimensionsToken) then
+            exit;
+
+        if not DimensionsToken.IsArray() then
+            exit;
+
+        DimensionsArr := DimensionsToken.AsArray();
+        if DimensionsArr.Count() = 0 then
+            exit;
+
+        if not GeneralLedgerSetup.Get() then
+            exit;
+
+        for j := 0 to DimensionsArr.Count() - 1 do begin
+            DimensionsArr.Get(j, DimToken);
+            DimObj := DimToken.AsObject();
+
+            DimCode := CopyStr(GetJsonTextValue(DimObj, 'Code'), 1, 20);
+            DimValueCode := CopyStr(GetJsonTextValue(DimObj, 'Value'), 1, 20);
+
+            if (DimCode = '') or (DimValueCode = '') then
+                // Skip empty suggestions
+            else begin
+                // Validate dimension value exists and is not blocked
+                if DimensionValue.Get(DimCode, DimValueCode) and (not DimensionValue.Blocked) then begin
+                    // Map to shortcut dimension fields
+                    if DimCode = GeneralLedgerSetup."Global Dimension 1 Code" then
+                        ImportDocLine."Shortcut Dimension 1 Code" := DimValueCode
+                    else if DimCode = GeneralLedgerSetup."Global Dimension 2 Code" then
+                        ImportDocLine."Shortcut Dimension 2 Code" := DimValueCode;
+                end;
+
+                // Always store in suggestion text for visibility
+                if DimSuggestionText <> '' then
+                    DimSuggestionText += ', ';
+                DimSuggestionText += DimCode + '=' + DimValueCode;
+            end;
+        end;
+
+        if DimSuggestionText <> '' then
+            ImportDocLine."Dimension Suggestion" := CopyStr(DimSuggestionText, 1, 250);
+    end;
+
+    local procedure SetAutoCodingStatus(var ImportDocHeader: Record "PaperTide Import Doc. Header"; StatusText: Text)
+    begin
+        ImportDocHeader."Auto Coding Status" := CopyStr(StatusText, 1, 250);
+        ImportDocHeader.Modify();
     end;
 
     local procedure GetJsonTextValue(JsonObj: JsonObject; FieldName: Text): Text

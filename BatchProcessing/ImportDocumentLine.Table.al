@@ -70,6 +70,28 @@ table 50103 "PaperTide Import Doc. Line"
             DataClassification = CustomerContent;
             ToolTip = 'Reason provided by the AI for the suggested GL account';
         }
+        field(40; "Shortcut Dimension 1 Code"; Code[20])
+        {
+            Caption = 'Shortcut Dimension 1 Code';
+            DataClassification = CustomerContent;
+            CaptionClass = '1,2,1';
+            TableRelation = "Dimension Value".Code where("Global Dimension No." = const(1), Blocked = const(false));
+            ToolTip = 'Specifies the code for Shortcut Dimension 1, as suggested by AI or manually entered';
+        }
+        field(41; "Shortcut Dimension 2 Code"; Code[20])
+        {
+            Caption = 'Shortcut Dimension 2 Code';
+            DataClassification = CustomerContent;
+            CaptionClass = '1,2,2';
+            TableRelation = "Dimension Value".Code where("Global Dimension No." = const(2), Blocked = const(false));
+            ToolTip = 'Specifies the code for Shortcut Dimension 2, as suggested by AI or manually entered';
+        }
+        field(42; "Dimension Suggestion"; Text[250])
+        {
+            Caption = 'Dimension Suggestion';
+            DataClassification = CustomerContent;
+            ToolTip = 'Full dimension suggestion from AI (for dimensions beyond the two shortcut dimensions)';
+        }
     }
 
     keys
