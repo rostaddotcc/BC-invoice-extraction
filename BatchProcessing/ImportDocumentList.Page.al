@@ -38,6 +38,12 @@ page 50105 "PaperTide Import Documents"
                     ApplicationArea = All;
                     ToolTip = 'AI processing status';
                 }
+                field("Processing Stage"; Rec."Processing Stage")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Current processing stage with timestamp (e.g., "Visual Extraction - 14:32:05")';
+                    Visible = false; // Show in factbox or detail view
+                }
                 field("Vendor Name"; Rec."Vendor Name")
                 {
                     ApplicationArea = All;
@@ -147,11 +153,11 @@ page 50105 "PaperTide Import Documents"
             {
                 ApplicationArea = All;
                 Caption = 'Retry';
-                ToolTip = 'Retry processing this document';
+                ToolTip = 'Retry processing this document (works for Error and Discarded documents)';
                 Image = Refresh;
                 Promoted = true;
                 PromotedCategory = Process;
-                Enabled = HasError;
+                Enabled = CanRetry;
 
                 trigger OnAction()
                 var
@@ -200,6 +206,23 @@ page 50105 "PaperTide Import Documents"
                         BatchProcessingMgt.ResetStuckDocument(Rec."Entry No.");
                         CurrPage.Update();
                     end;
+                end;
+            }
+            action(ProcessAllPending)
+            {
+                ApplicationArea = All;
+                Caption = 'Process All Pending';
+                ToolTip = 'Start background processing for all pending documents';
+                Image = Start;
+                Promoted = true;
+                PromotedCategory = Process;
+
+                trigger OnAction()
+                var
+                    BatchProcessingMgt: Codeunit "PaperTide Batch Processing Mgt";
+                begin
+                    BatchProcessingMgt.ScheduleProcessing();
+                    Message('Background processing scheduled for pending documents.');
                 end;
             }
             action(RefreshStatus)
@@ -259,6 +282,7 @@ page 50105 "PaperTide Import Documents"
         CanCreateInvoice := (Rec.Status = Rec.Status::Ready) and
                            (Rec."Created Invoice No." = '');
         HasError := Rec."Processing Status" = Rec."Processing Status"::Error;
+        CanRetry := HasError or (Rec.Status = Rec.Status::Discarded);
         IsStuck := Rec."Processing Status" = Rec."Processing Status"::Processing;
         NotCreated := (Rec.Status <> Rec.Status::Created) and
                       (Rec."Created Invoice No." = '');
@@ -300,6 +324,7 @@ page 50105 "PaperTide Import Documents"
         CanReview: Boolean;
         CanCreateInvoice: Boolean;
         HasError: Boolean;
+        CanRetry: Boolean;
         IsStuck: Boolean;
         NotCreated: Boolean;
         StatusStyle: Text;

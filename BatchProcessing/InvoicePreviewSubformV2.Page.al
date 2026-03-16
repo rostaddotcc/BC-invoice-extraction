@@ -139,7 +139,7 @@ page 50102 "PaperTide Inv. Preview Subform"
                     ApplicationArea = All;
                     ToolTip = 'Reason for the suggested account and dimensions';
                     Editable = false;
-                    Visible = false;
+                    Visible = true;
                 }
             }
         }

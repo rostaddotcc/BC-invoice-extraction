@@ -2,7 +2,7 @@
   "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   "name": "PaperTide",
   "publisher": "PaperTide",
-  "version": "1.1.0.0",
+  "version": "1.2.0.0",
   "brief": "PaperTide - AI-driven extraction of purchase invoices from images and PDFs",
   "description": "PaperTide extracts invoice data from images and PDF files using AI vision models with preview and approval workflow. Supports PDF conversion via Gotenberg.",
   "privacyStatement": "",

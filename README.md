@@ -11,8 +11,8 @@ A Per-Tenant Extension (PTE) for Business Central that uses AI vision models to 
 - **Concurrency Control** - Process up to 10 images at once with automatic queue management (configurable)
 - **Import Queue** - View and manage all imported documents with status tracking
 - **Preview & Edit** - Review extracted data with original image in FactBox before creating
-- **Auto Coding** - Dedicated text AI model for account and item classification with confidence levels, reasoning, and dimension suggestions
-- **Item Support** - AI can suggest both G/L Accounts and Items based on your chart of accounts and item list
+- **Auto Coding** - Dedicated text AI model for account and item classification with confidence levels, reasoning, and dimension suggestions. Vendor posting history is the strongest signal for classification.
+- **Item Support** - AI can suggest both G/L Accounts and Items based on your chart of accounts, item list, and vendor-specific Item References
 - **Dimension Suggestions** - AI suggests dimension values (Global Dimension 1 & 2) based on posting history, editable before invoice creation
 - **AI GL Account Suggestion** - AI analyzes your chart of accounts and suggests the most appropriate G/L account for each invoice line (vision model mode)
 - **PO Number Extraction** - AI extracts purchase order references from invoices
@@ -417,6 +417,18 @@ Pending -> Processing -> Ready -> Created
 
 ## Changelog
 
+### v1.2.0.0 (2026-03-16)
+- **Background PDF Conversion** - PDF-to-image conversion via Gotenberg now runs in background processing instead of blocking the browser during upload. Upload is instant; conversion happens as a processing step ("PDF Conversion" stage visible in queue).
+- **Background Processing via TaskScheduler** - All document processing (upload, retry) now scheduled via `TaskScheduler.CreateTask` in a separate session. The browser never freezes during processing.
+- **Vendor-Weighted Auto Coding** - Posting history from the identified vendor is now the strongest signal for GL account classification. AI prompt explicitly instructs to always prefer historical accounts for similar descriptions.
+- **Vendor Item References** - Auto coding now includes vendor-specific Item Reference numbers in the AI context, enabling matching of vendor article numbers to BC items.
+- **Retry After Discard** - Discarded documents can now be retried from the Import Queue, resetting them to Pending for reprocessing.
+- **Process All Pending** - New action in Import Queue to schedule background processing for all stuck pending documents.
+- **Robust Processing Chain** - `ParseAndSaveToImportDoc` wrapped in TryFunction so a parsing error no longer breaks the entire processing chain. Failed documents are marked as Error and the next document continues.
+- **Character Budget for AI Context** - Context building enforces a 100K character limit to prevent oversized API requests when chart of accounts or item lists are very large.
+- **Invoice Creation Validation** - Field length and account/item existence validation at "Create Invoice" step with clear error messages per line.
+- **Editable Coding System Prompt** - View and edit the auto coding system prompt in PaperTide AI Setup, with character count and a "Preview Full Coding Prompt" action showing the complete prompt including chart of accounts.
+
 ### v1.1.0.0 (2026-03-16)
 - **Secure API Key Storage** - All API keys (Vision, Coding, PDF Converter) migrated from plain-text database fields to encrypted Isolated Storage with per-company isolation. Existing keys are automatically migrated on first access.
 - **Auto Coding: Item Support** - AI can now suggest Items in addition to G/L Accounts. Line Type is set automatically based on AI classification.
@@ -487,7 +499,7 @@ For issues or questions, contact your Business Central partner or development te
 
 ---
 
-**Version:** 1.1.0.0
+**Version:** 1.2.0.0
 **Compatible with:** Business Central 27.4+
 **Runtime:** 14.0+
 **Last Updated:** 2026-03-16

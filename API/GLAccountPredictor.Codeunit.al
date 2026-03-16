@@ -7,6 +7,7 @@ codeunit 50106 "PaperTide GL Account Predictor"
         HttpRequestFailedErr: Label 'Coding API request failed with status code: %1\Error: %2';
         InvalidResponseErr: Label 'Invalid response from coding AI: %1';
         AutoCodingResultLbl: Label 'Auto Coding: %1 of %2 lines classified (%3 High, %4 Medium, %5 Low). %6';
+        MaxContextChars: Integer;
 
     procedure PredictGLAccounts(EntryNo: Integer)
     var
@@ -30,6 +31,9 @@ codeunit 50106 "PaperTide GL Account Predictor"
         ImportDocLine.SetRange("Entry No.", EntryNo);
         if ImportDocLine.IsEmpty() then
             exit;
+
+        // Character budget: ~100K chars to stay within typical API limits
+        MaxContextChars := 100000;
 
         // Build request and call API
         RequestBody := BuildRequestBody(AISetup, ImportDocHeader, ImportDocLine);
@@ -118,7 +122,7 @@ codeunit 50106 "PaperTide GL Account Predictor"
         // Build user message with lines, history, and chart
         UserMessageText := BuildUserMessage(AISetup, ImportDocHeader, ImportDocLine);
 
-        // Chart of accounts context
+        // Chart of accounts context (with character budget)
         ChartContext := AISetup.GetChartOfAccountsContext();
         if ChartContext = '' then
             ChartContext := AISetup.BuildChartOfAccountsContextV2();
@@ -127,14 +131,29 @@ codeunit 50106 "PaperTide GL Account Predictor"
             UserMessageText += '\n\nChart of Accounts (Type: G/L Account):\n' + ChartContext;
 
         // Item context
-        ItemContext := BuildItemContext(AISetup);
-        if ItemContext <> '' then
-            UserMessageText += '\n\nItems (Type: Item):\n' + ItemContext;
+        if StrLen(UserMessageText) < MaxContextChars then begin
+            ItemContext := BuildItemContext(AISetup);
+            if ItemContext <> '' then
+                UserMessageText += '\n\nItems (Type: Item):\n' + ItemContext;
+        end;
+
+        // Vendor-specific item references
+        if (ImportDocHeader."Vendor No." <> '') and (StrLen(UserMessageText) < MaxContextChars) then begin
+            ItemContext := BuildVendorItemReferenceContext(ImportDocHeader."Vendor No.", AISetup."Chart Context Max Accounts");
+            if ItemContext <> '' then
+                UserMessageText += '\n\nVendor-specific Item References (this vendor''s article numbers):\n' + ItemContext;
+        end;
 
         // Dimension values context
-        DimensionContext := BuildDimensionContext();
-        if DimensionContext <> '' then
-            UserMessageText += '\n\n' + DimensionContext;
+        if StrLen(UserMessageText) < MaxContextChars then begin
+            DimensionContext := BuildDimensionContext();
+            if DimensionContext <> '' then
+                UserMessageText += '\n\n' + DimensionContext;
+        end;
+
+        // Enforce hard limit to prevent oversized requests
+        if StrLen(UserMessageText) > MaxContextChars then
+            UserMessageText := CopyStr(UserMessageText, 1, MaxContextChars);
 
         // System message
         SystemMsg.Add('role', 'system');
@@ -183,6 +202,43 @@ codeunit 50106 "PaperTide GL Account Predictor"
                     break;
             until Item.Next() = 0;
         end;
+
+        exit(Context);
+    end;
+
+    local procedure BuildVendorItemReferenceContext(VendorNo: Code[20]; MaxEntries: Integer): Text
+    var
+        ItemReference: Record "Item Reference";
+        Item: Record Item;
+        Context: Text;
+        LineCount: Integer;
+        ItemDesc: Text;
+    begin
+        if MaxEntries <= 0 then
+            MaxEntries := 200;
+
+        ItemReference.SetRange("Reference Type", ItemReference."Reference Type"::Vendor);
+        ItemReference.SetRange("Reference Type No.", VendorNo);
+        if not ItemReference.FindSet() then
+            exit('');
+
+        repeat
+            ItemDesc := ItemReference.Description;
+            if (ItemDesc = '') and (ItemReference."Item No." <> '') then
+                if Item.Get(ItemReference."Item No.") then
+                    ItemDesc := Item.Description;
+
+            if Context <> '' then
+                Context += '\n';
+            Context += '- Vendor ref "' + ItemReference."Reference No." + '" → Item ' +
+                ItemReference."Item No." + ': ' + ItemDesc;
+            if ItemReference."Variant Code" <> '' then
+                Context += ' (Variant: ' + ItemReference."Variant Code" + ')';
+
+            LineCount += 1;
+            if LineCount >= MaxEntries then
+                break;
+        until ItemReference.Next() = 0;
 
         exit(Context);
     end;
@@ -358,7 +414,10 @@ codeunit 50106 "PaperTide GL Account Predictor"
         if Context = '' then
             exit('');
 
-        exit('\n\nPosting History (last ' + Format(InvoiceCount) + ' invoices from this vendor):' + Context);
+        exit('\n\nPosting History (last ' + Format(InvoiceCount) + ' invoices from this vendor):' + Context +
+            '\n\nIMPORTANT: This vendor''s posting history is the strongest signal for classification. ' +
+            'If a line description closely matches a historical line from this vendor, use the same account, ' +
+            'type, and dimensions with High confidence. Only deviate if the description clearly indicates a different category.');
     end;
 
     local procedure CallCodingAPI(
@@ -620,9 +679,9 @@ codeunit 50106 "PaperTide GL Account Predictor"
             DimCode := CopyStr(GetJsonTextValue(DimObj, 'Code'), 1, 20);
             DimValueCode := CopyStr(GetJsonTextValue(DimObj, 'Value'), 1, 20);
 
-            if (DimCode = '') or (DimValueCode = '') then
+            if (DimCode = '') or (DimValueCode = '') then begin
                 // Skip empty suggestions
-            else begin
+            end else begin
                 // Validate dimension value exists and is not blocked
                 if DimensionValue.Get(DimCode, DimValueCode) and (not DimensionValue.Blocked) then begin
                     // Map to shortcut dimension fields

@@ -166,6 +166,34 @@ page 50100 "PaperTide AI Setup"
                 }
             }
 
+            group(CodingSystemPrompt)
+            {
+                Caption = 'Coding System Prompt';
+                Visible = Rec."Enable Auto Coding";
+
+                field(CodingSystemPromptControl; CodingSystemPromptText)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Coding System Prompt';
+                    ToolTip = 'Instructions for the auto coding AI on how to classify invoice lines. This is the base prompt - chart of accounts, items, and vendor history are appended automatically.';
+                    MultiLine = true;
+                    ShowCaption = false;
+                    ExtendedDatatype = RichContent;
+
+                    trigger OnValidate()
+                    begin
+                        Rec.SetCodingSystemPrompt(CodingSystemPromptText);
+                    end;
+                }
+                field(CodingPromptCharCount; CodingPromptCharCountText)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Prompt Size';
+                    ToolTip = 'Approximate character count of the coding system prompt';
+                    Editable = false;
+                }
+            }
+
             group(SystemPrompt)
             {
                 Caption = 'System Prompt';
@@ -280,6 +308,54 @@ page 50100 "PaperTide AI Setup"
                 begin
                     Rec.RefreshChartOfAccountsContext();
                     Message('Chart of accounts refreshed successfully. AI will use the updated account list for suggestions.');
+                end;
+            }
+            action(ResetCodingPrompt)
+            {
+                ApplicationArea = All;
+                Caption = 'Reset Coding Prompt';
+                ToolTip = 'Reset coding system prompt to default values';
+                Image = Restore;
+                Promoted = true;
+                PromotedCategory = Process;
+                Enabled = Rec."Enable Auto Coding";
+
+                trigger OnAction()
+                begin
+                    if Confirm('Reset coding system prompt to default? This will overwrite any custom prompt.', false) then begin
+                        CodingSystemPromptText := Rec.GetDefaultCodingSystemPrompt();
+                        Rec.SetCodingSystemPrompt(CodingSystemPromptText);
+                        UpdateCodingPromptCharCount();
+                    end;
+                end;
+            }
+            action(PreviewFullCodingPrompt)
+            {
+                ApplicationArea = All;
+                Caption = 'Preview Full Coding Prompt';
+                ToolTip = 'Show the full prompt that will be sent to the coding AI, including chart of accounts and items';
+                Image = ShowList;
+                Promoted = true;
+                PromotedCategory = Process;
+                Enabled = Rec."Enable Auto Coding";
+
+                trigger OnAction()
+                var
+                    FullPrompt: Text;
+                    ChartContext: Text;
+                    ItemContext: Text;
+                begin
+                    FullPrompt := CodingSystemPromptText;
+
+                    ChartContext := Rec.GetChartOfAccountsContext();
+                    if ChartContext = '' then
+                        ChartContext := Rec.BuildChartOfAccountsContextV2();
+                    if ChartContext <> '' then
+                        FullPrompt += '\n\n--- Chart of Accounts ---\n' + ChartContext;
+
+                    FullPrompt += '\n\n--- Total: ' + Format(StrLen(FullPrompt)) + ' characters ---';
+
+                    Message(FullPrompt);
                 end;
             }
             action(TestCodingConnection)
@@ -448,13 +524,17 @@ page 50100 "PaperTide AI Setup"
     begin
         Rec.GetOrCreateSetup();
         SystemPromptText := Rec.GetSystemPrompt();
+        CodingSystemPromptText := Rec.GetCodingSystemPrompt();
         LoadAPIKeyIndicators();
+        UpdateCodingPromptCharCount();
     end;
 
     trigger OnQueryClosePage(CloseAction: Action): Boolean
     begin
         if SystemPromptText <> '' then
             Rec.SetSystemPrompt(SystemPromptText);
+        if CodingSystemPromptText <> '' then
+            Rec.SetCodingSystemPrompt(CodingSystemPromptText);
         exit(true);
     end;
 
@@ -471,8 +551,15 @@ page 50100 "PaperTide AI Setup"
             CodingAPIKeyValue := '';
     end;
 
+    local procedure UpdateCodingPromptCharCount()
+    begin
+        CodingPromptCharCountText := Format(StrLen(CodingSystemPromptText)) + ' characters (prompt only, chart of accounts and items added at runtime)';
+    end;
+
     var
         SystemPromptText: Text;
+        CodingSystemPromptText: Text;
+        CodingPromptCharCountText: Text;
         APIKeyValue: Text[250];
         CodingAPIKeyValue: Text[250];
 }

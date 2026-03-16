@@ -36,7 +36,7 @@ pageextension 50100 "PaperTide Purch. Inv. List Ext" extends "Purchase Invoices"
 
                     if UploadCount > 0 then begin
                         Message('%1 file(s) queued for processing.', UploadCount);
-                        BatchProcessingMgt.StartProcessingWithConcurrency();
+                        BatchProcessingMgt.ScheduleProcessing();
                     end;
                 end;
             }

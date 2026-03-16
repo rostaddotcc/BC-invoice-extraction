@@ -449,19 +449,21 @@ table 50100 "PaperTide AI Setup"
             '1. Only use account/item numbers from the provided chart of accounts and item list.\n' +
             '2. Only use dimension codes and values from the provided dimension list.\n' +
             '3. Consider the line description, amount, vendor context, and posting history.\n' +
-            '4. If posting history is provided, strongly prefer the same accounts, types, and dimensions ' +
-            'used for similar line descriptions from the same vendor.\n' +
-            '5. Return ONLY valid JSON array, one object per line, same order as input.\n' +
-            '6. Each object: {"LineNo": 10000, "Type": "G/L Account", "No": "6110", ' +
+            '4. If posting history is provided, ALWAYS prefer the same accounts, types, and dimensions ' +
+            'used for similar line descriptions from the same vendor. Posting history is the strongest signal.\n' +
+            '5. If vendor-specific item references are provided, match line descriptions against vendor reference ' +
+            'numbers/descriptions. When a match is found, use Type "Item" with the mapped Item No.\n' +
+            '6. Return ONLY valid JSON array, one object per line, same order as input.\n' +
+            '7. Each object: {"LineNo": 10000, "Type": "G/L Account", "No": "6110", ' +
             '"Dimensions": [{"Code": "DEPARTMENT", "Value": "SALES"}], ' +
             '"Confidence": "High", "Reason": "..."}\n' +
-            '7. Type must be one of: "G/L Account", "Item". Default to "G/L Account" if uncertain.\n' +
-            '8. Confidence levels: "High" = strong match from history or obvious category, ' +
+            '8. Type must be one of: "G/L Account", "Item". Default to "G/L Account" if uncertain.\n' +
+            '9. Confidence levels: "High" = strong match from history or obvious category, ' +
             '"Medium" = reasonable match, "Low" = best guess.\n' +
-            '9. ALWAYS suggest an account or item for every line. Never leave No empty. ' +
+            '10. ALWAYS suggest an account or item for every line. Never leave No empty. ' +
             'If uncertain, pick the most reasonable match and set Confidence to "Low".\n' +
-            '10. The LineNo value MUST exactly match the LineNo from the input (e.g., 10000, 20000).\n' +
-            '11. Dimensions array is optional. Only include dimensions you are confident about. ' +
+            '11. The LineNo value MUST exactly match the LineNo from the input (e.g., 10000, 20000).\n' +
+            '12. Dimensions array is optional. Only include dimensions you are confident about. ' +
             'Prefer dimensions from posting history for the same vendor and similar descriptions.'
         );
     end;

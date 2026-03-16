@@ -245,6 +245,13 @@ page 50101 "PaperTide Invoice Preview"
                     ToolTip = 'Specifies the current processing status';
                     StyleExpr = ProcessingStatusStyle;
                 }
+                field("Processing Stage"; Rec."Processing Stage")
+                {
+                    ApplicationArea = All;
+                    ToolTip = 'Current processing stage with timestamp (e.g., "Visual Extraction - 14:32:05")';
+                    Editable = false;
+                    Visible = Rec."Processing Stage" <> '';
+                }
                 field("Auto Coding Status"; Rec."Auto Coding Status")
                 {
                     ApplicationArea = All;
@@ -573,6 +580,10 @@ page 50101 "PaperTide Invoice Preview"
     local procedure ValidateBeforeCreate(): Boolean
     var
         Vendor: Record Vendor;
+        ImportDocLine: Record "PaperTide Import Doc. Line";
+        GLAccount: Record "G/L Account";
+        Item: Record Item;
+        LineErrors: Text;
     begin
         if Rec."Vendor No." = '' then begin
             Error('Vendor No. is required.');
@@ -588,6 +599,32 @@ page 50101 "PaperTide Invoice Preview"
             Error('Invoice No. is required.');
             exit(false);
         end;
+
+        // Validate line data fits BC field limits
+        ImportDocLine.SetRange("Entry No.", Rec."Entry No.");
+        if ImportDocLine.FindSet() then
+            repeat
+                if StrLen(ImportDocLine.Description) > 100 then begin
+                    if LineErrors <> '' then LineErrors += '\';
+                    LineErrors += StrSubstNo('Line %1: Description exceeds 100 characters (%2 chars).', ImportDocLine."Line No.", StrLen(ImportDocLine.Description));
+                end;
+                if ImportDocLine."No." <> '' then
+                    case ImportDocLine.Type of
+                        ImportDocLine.Type::"G/L Account":
+                            if not GLAccount.Get(ImportDocLine."No.") then begin
+                                if LineErrors <> '' then LineErrors += '\';
+                                LineErrors += StrSubstNo('Line %1: G/L Account %2 does not exist.', ImportDocLine."Line No.", ImportDocLine."No.");
+                            end;
+                        ImportDocLine.Type::Item:
+                            if not Item.Get(ImportDocLine."No.") then begin
+                                if LineErrors <> '' then LineErrors += '\';
+                                LineErrors += StrSubstNo('Line %1: Item %2 does not exist.', ImportDocLine."Line No.", ImportDocLine."No.");
+                            end;
+                    end;
+            until ImportDocLine.Next() = 0;
+
+        if LineErrors <> '' then
+            Error('Please fix the following before creating the invoice:\n\n%1', LineErrors);
 
         // Check for duplicate vendor invoice no.
         if CheckDuplicateInvoiceNo(Rec."Vendor No.", Rec."Invoice No.") then

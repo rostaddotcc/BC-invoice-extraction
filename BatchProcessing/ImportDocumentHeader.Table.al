@@ -186,6 +186,12 @@ table 50102 "PaperTide Import Doc. Header"
             DataClassification = SystemMetadata;
             ToolTip = 'Result summary from the auto coding AI classification step';
         }
+        field(35; "Processing Stage"; Text[100])
+        {
+            Caption = 'Processing Stage';
+            DataClassification = SystemMetadata;
+            ToolTip = 'Current processing stage with timestamp (e.g., "PDF Conversion - 14:32:05")';
+        }
     }
 
     keys
