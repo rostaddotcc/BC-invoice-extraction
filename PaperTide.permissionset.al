@@ -16,7 +16,6 @@ permissionset 50100 "PaperTide"
         table "PaperTide Vendor Name Mapping" = X,
         page "PaperTide AI Setup" = X,
         page "PaperTide Invoice Preview" = X,
-        page "PaperTide Batch Upload" = X,
         page "PaperTide Import Documents" = X,
         page "PaperTide Inv. Preview Subform" = X,
         page "PaperTide Inv. Image FactBox" = X,

@@ -171,6 +171,64 @@ codeunit 50102 "PaperTide Batch Processing Mgt"
         exit(GetActiveProcessingCount() < GetMaxConcurrency());
     end;
 
+    procedure ImportFile(var FileInStream: InStream; FileName: Text): Boolean
+    var
+        ImportDocHeader: Record "PaperTide Import Doc. Header";
+        FileManagement: Codeunit "File Management";
+        PDFConverter: Codeunit "PaperTide PDF Converter";
+        ImageTempBlob: Codeunit "Temp Blob";
+        PdfTempBlob: Codeunit "Temp Blob";
+        OutStream: OutStream;
+        PdfOutStream: OutStream;
+        MediaInStream: InStream;
+        ImageInStream: InStream;
+        PdfInStream: InStream;
+        FileExtension: Text;
+        MimeType: Text;
+        IsPdf: Boolean;
+    begin
+        FileExtension := LowerCase(FileManagement.GetExtension(FileName));
+        IsPdf := IsPdfFile(FileExtension);
+
+        if IsPdf then begin
+            PdfTempBlob.CreateOutStream(PdfOutStream);
+            CopyStream(PdfOutStream, FileInStream);
+            PdfTempBlob.CreateInStream(PdfInStream);
+            if not PDFConverter.TryConvertPdfToImage(PdfInStream, ImageTempBlob) then
+                Error(GetLastErrorText());
+            MimeType := 'image/png';
+        end else
+            MimeType := GetMimeType(FileExtension);
+
+        ImportDocHeader.Init();
+        ImportDocHeader."File Name" := CopyStr(FileName, 1, 250);
+        ImportDocHeader."Media ID" := CreateGuid();
+        ImportDocHeader.Status := ImportDocHeader.Status::Pending;
+        ImportDocHeader."Processing Status" := ImportDocHeader."Processing Status"::Pending;
+
+        ImportDocHeader."Image Blob".CreateOutStream(OutStream);
+        if IsPdf then begin
+            ImageTempBlob.CreateInStream(ImageInStream);
+            CopyStream(OutStream, ImageInStream);
+        end else
+            CopyStream(OutStream, FileInStream);
+
+        if IsPdf then begin
+            ImportDocHeader."Is PDF" := true;
+            PdfTempBlob.CreateInStream(PdfInStream);
+            ImportDocHeader."Original PDF Blob".CreateOutStream(PdfOutStream);
+            CopyStream(PdfOutStream, PdfInStream);
+        end;
+
+        ImportDocHeader.Insert(true);
+        ImportDocHeader.CalcFields("Image Blob");
+        ImportDocHeader."Image Blob".CreateInStream(MediaInStream);
+        ImportDocHeader."Invoice Image".ImportStream(MediaInStream, FileName, MimeType);
+        ImportDocHeader.Modify(true);
+
+        exit(true);
+    end;
+
     procedure IsValidImageExtension(FileExtension: Text): Boolean
     begin
         exit(FileExtension in ['jpg', 'jpeg', 'png']);

@@ -4,7 +4,7 @@
 
 **Project Name:** Paper Tide  
 **Type:** Per-Tenant Extension (PTE)  
-**Version:** 1.0.2.1
+**Version:** 1.0.2.2
 **Target Platform:** Microsoft Dynamics 365 Business Central  
 **Minimum Version:** 2024 Release Wave 2 (v27.4)  
 **Runtime Version:** 14.0  
@@ -99,7 +99,6 @@ Automate the creation of purchase invoices in Business Central by extracting dat
 | 50101 | PaperTide Invoice Preview | Card | PaperTide Import Doc. Header |
 | 50102 | PaperTide Inv. Preview Subform | ListPart | PaperTide Import Doc. Line |
 | 50103 | PaperTide Inv. Image FactBox | CardPart | PaperTide Import Doc. Header |
-| 50104 | PaperTide Batch Upload | Card | - |
 | 50105 | PaperTide Import Documents | List | PaperTide Import Doc. Header |
 | 50106 | PaperTide Vendor Mappings | List | PaperTide Vendor Name Mapping |
 
@@ -171,12 +170,12 @@ The AI GL Account Suggestion feature leverages the AI model's understanding of b
 
 ## Workflow
 
-### 1. Upload Workflow (Batch Upload)
+### 1. Upload Workflow
 
 ```
-User clicks "Batch Upload Invoices" action
+User clicks "PaperTide Upload" in Purchase Invoices toolbar
     ↓
-"Select Files" button opens file dialog
+File dialog opens immediately
     ↓
 User selects one or more files (JPG/JPEG/PNG/PDF)
     ↓
@@ -254,7 +253,7 @@ If processing fails:
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        USER INTERFACE                            │
-│  Purchase Invoices Page → Batch Upload Invoices action           │
+│  Purchase Invoices Page → PaperTide Upload action (fileUpload)   │
 │                         → View Import Queue action               │
 └─────────────────────────────┬───────────────────────────────────┘
                               │
@@ -494,8 +493,9 @@ If duplicate found: Error message displayed, creation blocked.
 | 1.0.0.24 | 2026-03-15 | Added PDF support via Gotenberg conversion service |
 | 1.0.2.0 | 2026-03-15 | PaperTide branding, Auto Coding feature, GL Suggestion Confidence, Configurable Concurrency |
 | 1.0.2.1 | 2026-03-15 | Multi-page PDF support: all pages rendered for AI extraction |
+| 1.0.2.2 | 2026-03-16 | Removed Batch Upload page; PaperTide Upload action now opens file dialog directly from Purchase Invoices toolbar |
 
 ---
 
-**Document Version:** 1.4
-**Last Updated:** 2026-03-15
+**Document Version:** 1.5
+**Last Updated:** 2026-03-16
