@@ -119,10 +119,12 @@ codeunit 50101 "PaperTide Invoice Extraction"
             VendorBankAccount.SetRange(IBAN, BankAccount);
             if VendorBankAccount.FindFirst() then
                 exit(VendorBankAccount."Vendor No.");
-            VendorBankAccount.Reset();
-            VendorBankAccount.SetRange("Bank Account No.", BankAccount);
-            if VendorBankAccount.FindFirst() then
-                exit(VendorBankAccount."Vendor No.");
+            if StrLen(BankAccount) <= MaxStrLen(VendorBankAccount."Bank Account No.") then begin
+                VendorBankAccount.Reset();
+                VendorBankAccount.SetRange("Bank Account No.", BankAccount);
+                if VendorBankAccount.FindFirst() then
+                    exit(VendorBankAccount."Vendor No.");
+            end;
         end;
 
         // Step 4-5: Try matching by name

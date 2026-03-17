@@ -600,6 +600,13 @@ page 50101 "PaperTide Invoice Preview"
             exit(false);
         end;
 
+        // Validate bank account length fits BC standard field (Vendor Bank Account."Bank Account No." is Code[30])
+        if StrLen(Rec."Vendor Bank Account") > 30 then begin
+            Error('Vendor Bank Account is too long (%1 chars, max 30). Please shorten or clear the value before creating the invoice.\n\nCurrent value: %2',
+                StrLen(Rec."Vendor Bank Account"), Rec."Vendor Bank Account");
+            exit(false);
+        end;
+
         // Validate line data fits BC field limits
         ImportDocLine.SetRange("Entry No.", Rec."Entry No.");
         if ImportDocLine.FindSet() then
